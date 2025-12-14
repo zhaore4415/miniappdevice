@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>设备寄出/归还登记</title>
+  <style>
+    :root{ --primary:#3b82f6; --bg:#f5f6fa; }
+    body { font-family: system-ui, Arial; margin: 0; background:var(--bg); }
+    header{ background:#fff; box-shadow:0 1px 8px rgba(0,0,0,.06); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; }
+    h1 { font-size: 18px; margin:0; }
+    main{ padding:24px; max-width:1200px; margin:0 auto; }
+    .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    label { display: inline-block; min-width: 100px; color:#555; }
+    input, select, textarea, button { padding: 10px 12px; font-size: 14px; border-radius:8px; border:1px solid #ccc; background:#fff; }
+    button{ background:var(--primary); color:#fff; border:none; cursor:pointer; }
+    .hidden-input { opacity: 0; position: absolute; left: -10000px; top: -10000px; }
+    .card { background:#fff; border: 1px solid #eee; padding: 16px; border-radius: 12px; margin-top: 12px; box-shadow:0 6px 16px rgba(0,0,0,.06); }
+    .card.accent{ border-left:6px solid var(--primary); }
+    table { border-collapse: collapse; width: 100%; margin-top: 12px; background:#fff; }
+    th, td { border: 1px solid #eee; padding: 10px; text-align: left; }
+    .table-actions button{ padding:6px 10px; font-size:12px; }
+    .tabs { display: flex; gap: 12px; margin-bottom: 12px; }
+    .tabs button { padding: 8px 12px; background:#fff; color:#333; border:1px solid #ddd; }
+    .tabs button.active{ background:var(--primary); color:#fff; border-color:var(--primary); }
+    .muted { color: #666; font-size: 12px; }
+    body.mode-register{ --primary:#0ea5e9; --bg:#eaf7ff; }
+    body.mode-ship{ --primary:#3b82f6; --bg:#eef3ff; }
+    body.mode-return{ --primary:#10b981; --bg:#eefaf5; }
+    body.mode-list{ --primary:#6366f1; --bg:#eef1ff; }
+    body.mode-qrcode{ --primary:#f59e0b; --bg:#fff7e6; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>设备寄出/归还登记</h1>
+    <div>
+      <button onclick="logout()">退出登录</button>
+    </div>
+  </header>
+  <main>
+
+  <div class="tabs">
+    <button id="tab-register" onclick="switchTab('register')">设备登记</button>
+    <button id="tab-ship" onclick="switchTab('ship')">寄出登记</button>
+    <button id="tab-return" onclick="switchTab('return')">归还登记</button>
+    <button id="tab-list" onclick="switchTab('list')">设备列表</button>
+    <button id="tab-qrcode" onclick="switchTab('qrcode')">批量生成二维码</button>
+  </div>
+
+  <div id="panel-register" class="card" style="display:none;">
+    <div class="row"><label>SN</label><input id="reg-sn" placeholder="例如 SN123456" /></div>
+    <div class="row"><label>设备名称</label><input id="reg-name" placeholder="可选" /></div>
+    <div class="row"><label>设备型号</label><input id="reg-model" placeholder="可选" /></div>
+    <div class="row"><label>负责人</label><input id="reg-owner" placeholder="可选" /></div>
+    <div class="row"><button onclick="registerOne()">登记设备</button></div>
+    <div class="row"><label>批量登记</label><textarea id="reg-bulk" rows="6" placeholder="每行：SN,名称,型号,负责人,电话；也可仅填SN"></textarea></div>
+    <div class="row"><button onclick="registerBulk()">批量登记</button></div>
+    <div id="reg-result" class="muted"></div>
+  </div>
+
+  <div id="panel-ship" class="card">
+    <div class="row"><label>寄出地址</label><input id="ship-address" placeholder="请输入寄出地址" /></div>
+    <div class="row"><label>经办人</label><input id="ship-operator" placeholder="可选" /></div>
+    <div class="row"><label>寄出时间</label><input id="ship-time" type="datetime-local" /></div>
+    <div class="row"><label>扫描/输入 SN</label><input id="ship-sn" placeholder="支持扫码或手输" /></div>
+    <input id="ship-scanner" class="hidden-input" />
+    <div class="row"><button onclick="submitShip()">提交寄出</button><button onclick="focusScanner('ship')">聚焦扫码枪</button></div>
+    <div id="ship-result" class="muted"></div>
+  </div>
+
+  <div id="panel-return" class="card" style="display:none;">
+    <div class="row"><label>经办人</label><input id="return-operator" placeholder="可选" /></div>
+    <div class="row"><label>归还时间</label><input id="return-time" type="datetime-local" /></div>
+    <div class="row"><label>扫描/输入 SN</label><input id="return-sn" placeholder="支持扫码或手输" /></div>
+    <input id="return-scanner" class="hidden-input" />
+    <div class="row"><button onclick="submitReturn()">提交归还</button><button onclick="focusScanner('return')">聚焦扫码枪</button></div>
+    <div id="return-result" class="muted"></div>
+  </div>
+
+  <div id="panel-list" class="card" style="display:none;">
+    <div class="row">
+      <label>筛选状态</label>
+      <select id="filter-status" onchange="loadDevices()">
+        <option value="">全部</option>
+        <option value="Idle">空闲</option>
+        <option value="Shipping">寄出中</option>
+        <option value="Repairing">维修中</option>
+        <option value="Scrapped">报废</option>
+      </select>
+      <label>搜索</label>
+      <input id="filter-q" placeholder="按SN或名称" oninput="loadDevices()" />
+      <button onclick="loadDevices()">刷新</button>
+      <button onclick="deleteSelected()" style="background:#ef4444;">批量删除</button>
+    </div>
+    <table>
+      <thead><tr><th>SN</th><th>名称</th><th>型号</th><th>状态</th><th>寄出地址</th><th>寄出时间</th><th>归还时间</th><th>操作</th><th>选择</th></tr></thead>
+      <tbody id="device-tbody"></tbody>
+    </table>
+  </div>
+
+  <div id="panel-qrcode" class="card" style="display:none;">
+    <div class="row"><label>SN 列表</label><textarea id="qr-sns" rows="6" placeholder="每行或用逗号分隔"></textarea></div>
+    <div class="row">
+      <button onclick="downloadQrZip()">下载ZIP</button>
+      <button onclick="openQrPrint()" style="background:#10b981;">打开打印页面</button>
+    </div>
+    <div class="muted">二维码内容为 SN 原文。可下载ZIP或打开打印页面直接打印。</div>
+  </div>
+  </main>
+
+  <script>
+    async function ensureAuthed(){
+      const r = await fetch('/api/auth/me', { credentials: 'include' });
+      if(!r.ok){ location.href = '/login.html'; }
+    }
+    ensureAuthed();
+    const api = {
+      ship: '/api/devices/ship',
+      ret: '/api/devices/return',
+      list: '/api/devices',
+      qr: '/api/qrcode/batch',
+      register: '/api/devices/register'
+    };
+    const edit = { sn:'', name:'', model:'', owner:'', phone:'' };
+    const selected = new Set();
+    const statusNames = ['Idle','Shipping','Returned','Repairing','Scrapped'];
+
+    function nowLocal() {
+      const d = new Date();
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      return d.toISOString().slice(0,16);
+    }
+
+    function setMode(t){
+      document.body.classList.remove('mode-register','mode-ship','mode-return','mode-list','mode-qrcode');
+      document.body.classList.add('mode-'+t);
+      document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+      const btn = document.getElementById('tab-'+t); if(btn) btn.classList.add('active');
+      document.getElementById('panel-register').classList.remove('accent');
+      document.getElementById('panel-ship').classList.remove('accent');
+      document.getElementById('panel-return').classList.remove('accent');
+      document.getElementById('panel-list').classList.remove('accent');
+      document.getElementById('panel-qrcode').classList.remove('accent');
+      document.getElementById('panel-'+t).classList.add('accent');
+    }
+
+    function switchTab(t) {
+      document.getElementById('panel-register').style.display = t==='register'? 'block':'none';
+      document.getElementById('panel-ship').style.display = t==='ship'? 'block':'none';
+      document.getElementById('panel-return').style.display = t==='return'? 'block':'none';
+      document.getElementById('panel-list').style.display = t==='list'? 'block':'none';
+      document.getElementById('panel-qrcode').style.display = t==='qrcode'? 'block':'none';
+      setMode(t);
+      if (t==='ship') focusScanner('ship');
+      if (t==='return') focusScanner('return');
+      if (t==='list') loadDevices();
+    }
+
+    function focusScanner(kind) {
+      const el = document.getElementById(kind==='ship' ? 'ship-scanner' : 'return-scanner');
+      el.value = '';
+      el.focus();
+    }
+
+    document.getElementById('ship-time').value = nowLocal();
+    document.getElementById('return-time').value = nowLocal();
+    switchTab('ship');
+
+    document.getElementById('ship-scanner').addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') {
+        const sn = e.target.value.trim();
+        autoNavigateBySN(sn);
+        e.target.value = '';
+      }
+    });
+    document.getElementById('return-scanner').addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') {
+        const sn = e.target.value.trim();
+        autoNavigateBySN(sn);
+        e.target.value = '';
+      }
+    });
+
+    async function autoNavigateBySN(sn){
+      const res = await fetch(`/api/devices/${encodeURIComponent(sn)}`, { credentials: 'include' });
+      if(res.ok){
+        const d = await res.json();
+        const status = typeof d.status === 'number' ? statusNames[d.status] : d.status;
+        if(status === 'Idle'){
+          switchTab('ship');
+          document.getElementById('ship-sn').value = sn;
+          focusScanner('ship');
+        }else if(status === 'Shipping'){
+          switchTab('return');
+          document.getElementById('return-sn').value = sn;
+          focusScanner('return');
+        }else{
+          switchTab('list');
+        }
+      }else{
+        gotoRegisterWithSN(sn);
+      }
+      const url = new URL(location.href);
+      url.searchParams.set('sn', sn);
+      history.replaceState(null, '', url.toString());
+    }
+
+    (async function initFromQuery(){
+      const p = new URLSearchParams(location.search);
+      const token = p.get('token');
+      if(token){
+        await fetch('/api/auth/login-token', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ token }) }).catch(()=>{});
+      }
+      const sn = p.get('sn');
+      if(sn){ await autoNavigateBySN(sn); }
+    })();
+
+    async function submitShip() {
+      const sn = document.getElementById('ship-sn').value.trim();
+      const address = document.getElementById('ship-address').value.trim();
+      const operator = document.getElementById('ship-operator').value.trim();
+      const shipAt = document.getElementById('ship-time').value;
+      const body = { SN: sn, Address: address, Operator: operator || null, ShipAt: shipAt ? new Date(shipAt).toISOString() : null };
+      const res = await fetch(api.ship, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+      const txt = document.getElementById('ship-result');
+      if (res.ok) {
+        const data = await res.json();
+        txt.textContent = `寄出成功：${data.sn || data.SN || sn}`;
+      } else {
+        const err = await res.json().catch(()=>({ message: res.statusText }));
+        const msg = err.message || res.status;
+        if(String(msg).includes('未登记')){
+          txt.innerHTML = `失败：设备未登记 <button onclick="gotoRegisterWithSN('${sn}')">去登记</button>`;
+        } else {
+          txt.textContent = `失败：${msg}`;
+        }
+      }
+    }
+
+    async function submitReturn() {
+      const sn = document.getElementById('return-sn').value.trim();
+      const operator = document.getElementById('return-operator').value.trim();
+      const returnAt = document.getElementById('return-time').value;
+      const body = { SN: sn, Operator: operator || null, ReturnAt: returnAt ? new Date(returnAt).toISOString() : null };
+      const res = await fetch(api.ret, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+      const txt = document.getElementById('return-result');
+      if (res.ok) {
+        const data = await res.json();
+        txt.textContent = `已归还：${data.sn || data.SN || sn}`;
+      } else {
+        const err = await res.json().catch(()=>({ message: res.statusText }));
+        txt.textContent = `失败：${err.message || res.status}`;
+      }
+    }
+
+    async function loadDevices() {
+      const q = document.getElementById('filter-q').value.trim();
+      const status = document.getElementById('filter-status').value;
+      const url = new URL(api.list, location.origin);
+      if (q) url.searchParams.set('q', q);
+      if (status) url.searchParams.set('status', status);
+      const res = await fetch(url, { credentials: 'include' });
+      const list = res.ok ? await res.json() : [];
+      const tbody = document.getElementById('device-tbody');
+      tbody.innerHTML = '';
+      for (const d of list) {
+        const tr = document.createElement('tr');
+        const sn = d.sn || d.SN;
+        tr.innerHTML = `<td>${sn}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${statusText(d.status)}</td><td>${d.lastShipAddress || ''}</td><td>${formatTime(d.lastShipAt)}</td><td>${formatTime(d.lastReturnAt)}</td><td class='table-actions'><button onclick="openEdit('${sn}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}')">编辑</button></td><td><input type="checkbox" onchange="toggleSelect(this,'${sn}')"></td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function formatTime(v) {
+      if (!v) return '';
+      const dt = new Date(v);
+      return dt.toLocaleString();
+    }
+
+    function statusText(v){
+      const key = typeof v === 'number' ? (statusNames[v] || String(v)) : String(v);
+      const map = { Idle: '空闲', Shipping: '寄出中', Returned: '已归还', Repairing: '维修中', Scrapped: '报废' };
+      return map[key] || key;
+    }
+
+    function escapeAttr(v){
+      return (v || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function openEdit(sn, name, model, owner, shipaddr){
+      edit.sn = sn; edit.name = decodeHtml(name); edit.model = decodeHtml(model); edit.owner = decodeHtml(owner);
+      document.getElementById('edit-sn').textContent = sn;
+      document.getElementById('edit-name').value = edit.name || '';
+      document.getElementById('edit-model').value = edit.model || '';
+      document.getElementById('edit-owner').value = edit.owner || '';
+      document.getElementById('edit-shipaddr').value = decodeHtml(shipaddr) || '';
+      document.getElementById('modal').style.display = 'flex';
+    }
+
+    function decodeHtml(v){
+      const t = document.createElement('textarea'); t.innerHTML = v; return t.value;
+    }
+
+    function closeEdit(){ document.getElementById('modal').style.display = 'none'; }
+
+    async function saveEdit(){
+      const body = {
+        Name: document.getElementById('edit-name').value,
+        Model: document.getElementById('edit-model').value,
+        Owner: document.getElementById('edit-owner').value,
+        LastShipAddress: document.getElementById('edit-shipaddr').value
+      };
+      const res = await fetch(`/api/devices/${encodeURIComponent(edit.sn)}`, { method:'PUT', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(body) });
+      if(res.ok){ closeEdit(); loadDevices(); } else { const err = await res.json().catch(async()=>({message: await res.text()})); alert(err.message || '保存失败'); }
+    }
+    function toggleSelect(cb, sn){ if(cb.checked){ selected.add(sn);} else { selected.delete(sn);} }
+    async function deleteSelected(){
+      if(selected.size===0){ alert('未选择'); return; }
+      if(!confirm('确认删除选中设备？')) return;
+      const res = await fetch('/api/devices', { method:'DELETE', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ SNs: Array.from(selected) }) });
+      if(res.ok){ selected.clear(); loadDevices(); } else { alert('删除失败'); }
+    }
+
+    function gotoRegisterWithSN(sn){
+      switchTab('register');
+      document.getElementById('reg-sn').value = sn;
+      document.getElementById('reg-name').focus();
+    }
+
+    async function registerOne(){
+      const d = {
+        SN: document.getElementById('reg-sn').value.trim(),
+        Name: document.getElementById('reg-name').value.trim() || null,
+        Model: document.getElementById('reg-model').value.trim() || null,
+        Owner: document.getElementById('reg-owner').value.trim() || null
+      };
+      const res = await fetch(api.register, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify([d]) });
+      const out = document.getElementById('reg-result');
+      if(res.ok){ out.textContent = '登记成功'; } else { const err = await res.json().catch(()=>({message:res.statusText})); out.textContent = `失败：${err.message || res.status}`; }
+    }
+
+    async function registerBulk(){
+      const raw = document.getElementById('reg-bulk').value.trim();
+      const lines = raw.split(/\n/).map(l=>l.trim()).filter(Boolean);
+      const items = [];
+      for(const line of lines){
+        const parts = line.split(',').map(x=>x.trim());
+        const [sn,name,model,owner] = parts;
+        if(!sn) continue;
+        items.push({ SN: sn, Name: name||null, Model: model||null, Owner: owner||null });
+      }
+      if(items.length===0){ document.getElementById('reg-result').textContent='失败：无有效数据'; return; }
+      const res = await fetch(api.register, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(items) });
+      const out = document.getElementById('reg-result');
+      if(res.ok){ const data = await res.json(); out.textContent = `批量成功：${data.count}`; } else { const err = await res.json().catch(()=>({message:res.statusText})); out.textContent = `失败：${err.message || res.status}`; }
+    }
+
+    async function downloadQrZip() {
+      const raw = document.getElementById('qr-sns').value.trim();
+      const sns = raw.split(/\s|,|;|\n/).map(x=>x.trim()).filter(Boolean);
+      const res = await fetch(api.qr, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ SNs: sns }) });
+      if (!res.ok) return alert('生成失败');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'qrcodes.zip';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function openQrPrint(){
+      const raw = document.getElementById('qr-sns').value.trim();
+      const sns = raw.split(/\s|,|;|\n/).map(x=>x.trim()).filter(Boolean);
+      const url = new URL('/qrcode.html', location.origin);
+      url.searchParams.set('sns', encodeURIComponent(sns.join(',')));
+      window.open(url.toString(), '_blank');
+    }
+
+    async function logout(){
+      await fetch('/api/auth/logout', { method:'POST', credentials: 'include' });
+      location.href = '/login.html';
+    }
+  </script>
+  <div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:16px; border-radius:12px; width:420px; box-shadow:0 10px 20px rgba(0,0,0,.15)">
+      <h3 style="margin:0 0 12px;">编辑设备：<span id="edit-sn"></span></h3>
+      <div class="row"><label>名称</label><input id="edit-name" /></div>
+      <div class="row"><label>型号</label><input id="edit-model" /></div>
+      <div class="row"><label>负责人</label><input id="edit-owner" /></div>
+      <div class="row"><label>寄出地址</label><input id="edit-shipaddr" /></div>
+      <div class="row"><button onclick="saveEdit()">保存</button><button onclick="closeEdit()" style="background:#999;">取消</button></div>
+    </div>
+  </div>
+</body>
+</html>
+ 

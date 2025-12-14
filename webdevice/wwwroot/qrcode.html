@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>二维码打印</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    body { font-family: system-ui, Arial; }
+    .grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
+    .item { border:1px solid #ddd; padding:8px; text-align:center; }
+    .item img{ width:160px; height:160px; }
+    .sn{ margin-top:8px; font-size:14px; }
+    @media print{
+      .actions{ display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="actions">
+    <button onclick="window.print()">打印</button>
+  </div>
+  <div id="grid" class="grid"></div>
+  <script>
+    const p = new URLSearchParams(location.search);
+    const raw = p.get('sns') || '';
+    const token = p.get('token') || '';
+    const sns = decodeURIComponent(raw).split(',').filter(Boolean);
+    const grid = document.getElementById('grid');
+    (async () => {
+      for(const sn of sns){
+        const div = document.createElement('div');
+        div.className = 'item';
+        const img = document.createElement('img');
+        const url = new URL('/api/qrcode/png', location.origin);
+        url.searchParams.set('sn', sn);
+        if(token) url.searchParams.set('token', token);
+        url.searchParams.set('u', 'admin'); url.searchParams.set('p', 'admin123');
+        img.src = url.toString();
+        const s = document.createElement('div');
+        s.className = 'sn';
+        s.textContent = sn;
+        div.appendChild(img); div.appendChild(s);
+        grid.appendChild(div);
+      }
+    })();
+  </script>
+</body>
+</html>

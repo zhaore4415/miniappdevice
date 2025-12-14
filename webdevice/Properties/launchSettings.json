@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "WebDevice.Api": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "http://1.94.222.205:5006;https://1.94.222.205:5007" //http://1.94.222.205:5006/  http://0.0.0.0:5007
+    }
+  }
+}

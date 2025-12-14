@@ -1,0 +1,1 @@
+{"version":3,"file":"config.js","sources":["config.js"],"sourcesContent":["export default {\n  apiBase: 'http://1.94.222.205:5006'  // http://1.94.222.205:5006\n}\n"],"names":[],"mappings":";AAAA,MAAe,MAAA;AAAA,EACb,SAAS;AAAA;AACX;;"}
