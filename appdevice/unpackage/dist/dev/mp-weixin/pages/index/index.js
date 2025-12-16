@@ -18,6 +18,12 @@ const _sfc_main = {
   onLoad() {
     this.loadDevices();
   },
+  onShow() {
+    const tb = this.getTabBar && this.getTabBar();
+    if (tb && tb.setData) {
+      tb.setData({ selected: 1 });
+    }
+  },
   onPullDownRefresh() {
     this.refresh();
   },
@@ -97,17 +103,18 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
         i: common_vendor.o(($event) => $options.openDetail(d), d.SN || d.sn)
       };
     }),
-    h: $data.showDetail
+    h: common_vendor.o((...args) => $options.refresh && $options.refresh(...args)),
+    i: $data.showDetail
   }, $data.showDetail ? {
-    i: common_vendor.o((...args) => $options.closeDetail && $options.closeDetail(...args)),
-    j: common_vendor.t($data.detail.SN || $data.detail.sn),
-    k: common_vendor.t($data.detail.name || ""),
-    l: common_vendor.t($data.detail.model || ""),
-    m: common_vendor.t($data.detail.owner || ""),
-    n: common_vendor.t($options.statusText($data.detail.status)),
-    o: common_vendor.t($data.detail.lastShipAddress || ""),
-    p: common_vendor.t($options.formatTime($data.detail.lastShipAt)),
-    q: common_vendor.t($options.formatTime($data.detail.lastReturnAt))
+    j: common_vendor.o((...args) => $options.closeDetail && $options.closeDetail(...args)),
+    k: common_vendor.t($data.detail.SN || $data.detail.sn),
+    l: common_vendor.t($data.detail.name || ""),
+    m: common_vendor.t($data.detail.model || ""),
+    n: common_vendor.t($data.detail.owner || ""),
+    o: common_vendor.t($options.statusText($data.detail.status)),
+    p: common_vendor.t($data.detail.lastShipAddress || ""),
+    q: common_vendor.t($options.formatTime($data.detail.lastShipAt)),
+    r: common_vendor.t($options.formatTime($data.detail.lastReturnAt))
   } : {});
 }
 const MiniProgramPage = /* @__PURE__ */ common_vendor._export_sfc(_sfc_main, [["render", _sfc_render]]);

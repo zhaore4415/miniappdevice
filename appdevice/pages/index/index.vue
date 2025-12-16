@@ -19,6 +19,11 @@
         <view class="row"><text class="label">归还时间</text><text class="val">{{formatTime(d.lastReturnAt)}}</text></view>
       </view>
     </scroll-view>
+    <view class="footer">
+      <view class="footer-item disabled">寄出</view>
+      <view class="footer-item active" @click="refresh">设备列表</view>
+      <view class="footer-item disabled">归还</view>
+    </view>
     <view class="modal" v-if="showDetail">
       <view class="detail">
         <view class="row head"><text>设备详情</text><button class="btn" @click="closeDetail">关闭</button></view>
@@ -32,7 +37,6 @@
         <view class="row"><text class="label">归还时间</text><text class="val">{{formatTime(detail.lastReturnAt)}}</text></view>
       </view>
     </view>
- 
   </view>
   </template>
   <script>
@@ -53,6 +57,10 @@
     },
     onLoad(){
       this.loadDevices();
+    },
+    onShow(){
+      const tb = this.getTabBar && this.getTabBar()
+      if(tb && tb.setData){ tb.setData({ selected: 1 }) }
     },
     onPullDownRefresh(){
       this.refresh();
@@ -85,7 +93,7 @@
   .bar{ display:flex; gap: 16rpx; align-items:center; }
   .btn{ padding: 10rpx 20rpx; background:#3b82f6; color:#fff; border-radius: 8rpx; font-size: 26rpx; }
   .search{ flex:1; padding: 10rpx 20rpx; border:1rpx solid #ddd; border-radius: 8rpx; background:#fff; }
-  .list{ height: calc(100vh - 140rpx); margin-top: 20rpx; }
+  .list{ height: calc(100vh - 260rpx); margin-top: 20rpx; }
   .card{ background:#fff; border:1rpx solid #eee; border-radius: 12rpx; padding: 20rpx; margin-bottom: 16rpx; }
   .row{ display:flex; justify-content:space-between; margin-bottom: 10rpx; }
   .sn{ font-weight: bold; }
@@ -100,4 +108,8 @@
   .modal{ position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; }
   .detail{ width: 640rpx; background:#fff; border-radius: 12rpx; padding: 20rpx; }
   .head{ align-items:center; }
+  .footer{ position:fixed; left:0; right:0; bottom:0; height: 120rpx; background:#fff; border-top:1rpx solid #eee; display:flex; }
+  .footer-item{ flex:1; text-align:center; line-height:120rpx; font-size: 34rpx; color:#666; }
+  .footer-item.active{ color:#3b82f6; font-weight: 600; }
+  .footer-item.disabled{ color:#999; }
   </style>

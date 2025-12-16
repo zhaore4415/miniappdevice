@@ -7,7 +7,7 @@
 }
 .search{ flex:1; padding: 10rpx 20rpx; border:1rpx solid #ddd; border-radius: 8rpx; background:#fff;
 }
-.list{ height: calc(100vh - 140rpx); margin-top: 20rpx;
+.list{ height: calc(100vh - 260rpx); margin-top: 20rpx;
 }
 .card{ background:#fff; border:1rpx solid #eee; border-radius: 12rpx; padding: 20rpx; margin-bottom: 16rpx;
 }
@@ -36,5 +36,13 @@
 .detail{ width: 640rpx; background:#fff; border-radius: 12rpx; padding: 20rpx;
 }
 .head{ align-items:center;
+}
+.footer{ position:fixed; left:0; right:0; bottom:0; height: 120rpx; background:#fff; border-top:1rpx solid #eee; display:flex;
+}
+.footer-item{ flex:1; text-align:center; line-height:120rpx; font-size: 34rpx; color:#666;
+}
+.footer-item.active{ color:#3b82f6; font-weight: 600;
+}
+.footer-item.disabled{ color:#999;
 }
   
