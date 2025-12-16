@@ -33,6 +33,11 @@
     .layout{ display:flex; gap:16px; }
     .sidebar{ width:220px; }
     .content{ flex:1; }
+    .history{ height: 260px; overflow-y: auto; -webkit-overflow-scrolling: touch; border:1px solid #eee; border-radius:8px; padding:8px; background:#fff; }
+    .history::-webkit-scrollbar{ width:0; height:0; }
+    .history{ scrollbar-width: none; -ms-overflow-style: none; }
+    .history-item{ display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #eee; }
+    .history-item:last-child{ border-bottom:none; }
     @media (max-width: 768px){
       .layout{ flex-direction: column; }
       .tabs.vertical{ flex-direction: row; flex-wrap: wrap; }
@@ -68,6 +73,10 @@
     <input id="ship-scanner" class="hidden-input" />
     <div class="row"><button onclick="submitShip()">提交寄出</button><button onclick="focusScanner('ship')">聚焦扫码枪</button></div>
     <div id="ship-result" class="muted"></div>
+  </div>
+  <div id="panel-ship-history" class="card">
+    <div class="row"><label>已完成登记</label><div style="flex:1;"></div></div>
+    <div id="ship-history-list" class="history"></div>
   </div>
 
   <div id="panel-return" class="card" style="display:none;">
@@ -130,6 +139,8 @@
     const edit = { sn:'', name:'', model:'', owner:'', phone:'' };
     const selected = new Set();
     const statusNames = ['Idle','Shipping','Returned','Repairing','Scrapped'];
+    let shipHistory = [];
+    let marqueeTimer = null;
 
     function nowLocal() {
       const d = new Date();
@@ -151,6 +162,8 @@
 
     function switchTab(t) {
       document.getElementById('panel-ship').style.display = t==='ship'? 'block':'none';
+      const shipHist = document.getElementById('panel-ship-history');
+      if (shipHist) shipHist.style.display = t==='ship'? 'block':'none';
       document.getElementById('panel-return').style.display = t==='return'? 'block':'none';
       document.getElementById('panel-list').style.display = t==='list'? 'block':'none';
       document.getElementById('panel-qrcode').style.display = t==='qrcode'? 'block':'none';
@@ -159,6 +172,7 @@
       if (t==='ship') focusScanner('ship');
       if (t==='return') focusScanner('return');
       if (t==='list') loadDevices();
+      if (t==='ship') startHistoryMarquee(); else stopHistoryMarquee();
     }
 
     function focusScanner(kind) {
@@ -171,23 +185,45 @@
     document.getElementById('return-time').value = nowLocal();
     const lastTab = localStorage.getItem('tab');
     switchTab(lastTab || 'ship');
+    try{
+      shipHistory = JSON.parse(localStorage.getItem('ship_history') || '[]');
+      renderShipHistory();
+    }catch{}
 
     document.getElementById('ship-scanner').addEventListener('keyup', (e) => {
       if (e.key === 'Enter') {
-        const sn = e.target.value.trim();
+        const sn = extractSN(e.target.value.trim());
         autoNavigateBySN(sn);
         e.target.value = '';
       }
     });
     document.getElementById('return-scanner').addEventListener('keyup', (e) => {
       if (e.key === 'Enter') {
-        const sn = e.target.value.trim();
+        const sn = extractSN(e.target.value.trim());
         autoNavigateBySN(sn);
         e.target.value = '';
       }
     });
+    document.getElementById('ship-sn').addEventListener('input', (e)=>{
+      const s = extractSN(e.target.value);
+      if(s !== e.target.value) e.target.value = s;
+    });
+    document.getElementById('return-sn').addEventListener('input', (e)=>{
+      const s = extractSN(e.target.value);
+      if(s !== e.target.value) e.target.value = s;
+    });
 
+    function extractSN(v){
+      if(!v) return '';
+      const m = String(v).match(/sn=([^&#]+)/i);
+      if(m) return decodeURIComponent(m[1]);
+      try{
+        if(/^https?:\/\//i.test(v)){ const u = new URL(v); const s = u.searchParams.get('sn'); if(s) return s; const parts = u.pathname.split('/').filter(Boolean); return parts.pop() || v; }
+      }catch{}
+      return v;
+    }
     async function autoNavigateBySN(sn){
+      sn = extractSN(sn);
       const res = await fetch(`/api/devices/${encodeURIComponent(sn)}`, { credentials: 'include' });
       if(res.ok){
         const d = await res.json();
@@ -222,7 +258,7 @@
     })();
 
     async function submitShip() {
-      const sn = document.getElementById('ship-sn').value.trim();
+      const sn = extractSN(document.getElementById('ship-sn').value.trim());
       const address = document.getElementById('ship-address').value.trim();
       const operator = document.getElementById('ship-operator').value.trim();
       const shipAt = document.getElementById('ship-time').value;
@@ -232,6 +268,7 @@
       if (res.ok) {
         const data = await res.json();
         txt.textContent = `寄出成功：${data.sn || data.SN || sn}`;
+        addShipHistory(data.SN || data.sn || sn, data.model || '', data.LastShipAt || data.lastShipAt || null);
       } else {
         const err = await res.json().catch(()=>({ message: res.statusText }));
         const msg = err.message || res.status;
@@ -244,7 +281,7 @@
     }
 
     async function submitReturn() {
-      const sn = document.getElementById('return-sn').value.trim();
+      const sn = extractSN(document.getElementById('return-sn').value.trim());
       const operator = document.getElementById('return-operator').value.trim();
       const returnAt = document.getElementById('return-time').value;
       const body = { SN: sn, Operator: operator || null, ReturnAt: returnAt ? new Date(returnAt).toISOString() : null };
@@ -394,6 +431,32 @@
     async function logout(){
       await fetch('/api/auth/logout', { method:'POST', credentials: 'include' });
       location.href = '/login.html';
+    }
+    function addShipHistory(sn, model, at){
+      const t = at ? new Date(at).toLocaleString() : new Date().toLocaleString();
+      shipHistory.unshift({ sn, model, t });
+      shipHistory = shipHistory.slice(0, 100);
+      try{ localStorage.setItem('ship_history', JSON.stringify(shipHistory)); }catch{}
+      renderShipHistory();
+    }
+    function renderShipHistory(){
+      const el = document.getElementById('ship-history-list');
+      if(!el) return;
+      el.innerHTML = shipHistory.map(x=>`<div class="history-item"><div>${x.sn}</div><div class="muted">${x.model || ''}</div><div class="muted">${x.t}</div></div>`).join('');
+      el.addEventListener('mouseenter', stopHistoryMarquee);
+      el.addEventListener('mouseleave', startHistoryMarquee);
+    }
+    function startHistoryMarquee(){
+      const el = document.getElementById('ship-history-list');
+      if(!el) return;
+      stopHistoryMarquee();
+      marqueeTimer = setInterval(()=>{
+        el.scrollTop = el.scrollTop + 1;
+        if(el.scrollTop >= el.scrollHeight - el.clientHeight) el.scrollTop = 0;
+      }, 40);
+    }
+    function stopHistoryMarquee(){
+      if(marqueeTimer){ clearInterval(marqueeTimer); marqueeTimer = null; }
     }
   </script>
   <div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); align-items:center; justify-content:center;">
