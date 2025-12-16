@@ -20,15 +20,24 @@
     table { border-collapse: collapse; width: 100%; margin-top: 12px; background:#fff; }
     th, td { border: 1px solid #eee; padding: 10px; text-align: left; }
     .table-actions button{ padding:6px 10px; font-size:12px; }
-    .tabs { display: flex; gap: 12px; margin-bottom: 12px; }
-    .tabs button { padding: 8px 12px; background:#fff; color:#333; border:1px solid #ddd; }
+    .tabs { display: flex; gap: 12px; }
+    .tabs.vertical{ flex-direction: column; }
+    .tabs.vertical button{ width: 100%; text-align: left; }
+    .tabs button { padding: 10px 12px; background:#fff; color:#333; border:1px solid #ddd; }
     .tabs button.active{ background:var(--primary); color:#fff; border-color:var(--primary); }
     .muted { color: #666; font-size: 12px; }
-    body.mode-register{ --primary:#0ea5e9; --bg:#eaf7ff; }
     body.mode-ship{ --primary:#3b82f6; --bg:#eef3ff; }
     body.mode-return{ --primary:#10b981; --bg:#eefaf5; }
     body.mode-list{ --primary:#6366f1; --bg:#eef1ff; }
     body.mode-qrcode{ --primary:#f59e0b; --bg:#fff7e6; }
+    .layout{ display:flex; gap:16px; }
+    .sidebar{ width:220px; }
+    .content{ flex:1; }
+    @media (max-width: 768px){
+      .layout{ flex-direction: column; }
+      .tabs.vertical{ flex-direction: row; flex-wrap: wrap; }
+      .sidebar{ width:100%; }
+    }
   </style>
 </head>
 <body>
@@ -40,24 +49,16 @@
   </header>
   <main>
 
-  <div class="tabs">
-    <button id="tab-register" onclick="switchTab('register')">设备登记</button>
-    <button id="tab-ship" onclick="switchTab('ship')">寄出登记</button>
-    <button id="tab-return" onclick="switchTab('return')">归还登记</button>
-    <button id="tab-list" onclick="switchTab('list')">设备列表</button>
-    <button id="tab-qrcode" onclick="switchTab('qrcode')">批量生成二维码</button>
-  </div>
-
-  <div id="panel-register" class="card" style="display:none;">
-    <div class="row"><label>SN</label><input id="reg-sn" placeholder="例如 SN123456" /></div>
-    <div class="row"><label>设备名称</label><input id="reg-name" placeholder="可选" /></div>
-    <div class="row"><label>设备型号</label><input id="reg-model" placeholder="可选" /></div>
-    <div class="row"><label>负责人</label><input id="reg-owner" placeholder="可选" /></div>
-    <div class="row"><button onclick="registerOne()">登记设备</button></div>
-    <div class="row"><label>批量登记</label><textarea id="reg-bulk" rows="6" placeholder="每行：SN,名称,型号,负责人,电话；也可仅填SN"></textarea></div>
-    <div class="row"><button onclick="registerBulk()">批量登记</button></div>
-    <div id="reg-result" class="muted"></div>
-  </div>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="tabs vertical">
+        <button id="tab-ship" onclick="switchTab('ship')">寄出登记</button>
+        <button id="tab-return" onclick="switchTab('return')">归还登记</button>
+        <button id="tab-list" onclick="switchTab('list')">设备列表</button>
+        <button id="tab-qrcode" onclick="switchTab('qrcode')">批量生成二维码</button>
+      </div>
+    </aside>
+    <div class="content">
 
   <div id="panel-ship" class="card">
     <div class="row"><label>寄出地址</label><input id="ship-address" placeholder="请输入寄出地址" /></div>
@@ -91,6 +92,8 @@
       <label>搜索</label>
       <input id="filter-q" placeholder="按SN或名称" oninput="loadDevices()" />
       <button onclick="loadDevices()">刷新</button>
+      <button onclick="openCreate()" style="background:#0ea5e9;">新增设备</button>
+      <button onclick="openBulk()" style="background:#10b981;">批量登记</button>
       <button onclick="deleteSelected()" style="background:#ef4444;">批量删除</button>
     </div>
     <table>
@@ -106,6 +109,8 @@
       <button onclick="openQrPrint()" style="background:#10b981;">打开打印页面</button>
     </div>
     <div class="muted">二维码内容为 SN 原文。可下载ZIP或打开打印页面直接打印。</div>
+  </div>
+    </div>
   </div>
   </main>
 
@@ -133,11 +138,10 @@
     }
 
     function setMode(t){
-      document.body.classList.remove('mode-register','mode-ship','mode-return','mode-list','mode-qrcode');
+      document.body.classList.remove('mode-ship','mode-return','mode-list','mode-qrcode');
       document.body.classList.add('mode-'+t);
       document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
       const btn = document.getElementById('tab-'+t); if(btn) btn.classList.add('active');
-      document.getElementById('panel-register').classList.remove('accent');
       document.getElementById('panel-ship').classList.remove('accent');
       document.getElementById('panel-return').classList.remove('accent');
       document.getElementById('panel-list').classList.remove('accent');
@@ -146,12 +150,12 @@
     }
 
     function switchTab(t) {
-      document.getElementById('panel-register').style.display = t==='register'? 'block':'none';
       document.getElementById('panel-ship').style.display = t==='ship'? 'block':'none';
       document.getElementById('panel-return').style.display = t==='return'? 'block':'none';
       document.getElementById('panel-list').style.display = t==='list'? 'block':'none';
       document.getElementById('panel-qrcode').style.display = t==='qrcode'? 'block':'none';
       setMode(t);
+      try{ localStorage.setItem('tab', t); }catch(e){}
       if (t==='ship') focusScanner('ship');
       if (t==='return') focusScanner('return');
       if (t==='list') loadDevices();
@@ -165,7 +169,8 @@
 
     document.getElementById('ship-time').value = nowLocal();
     document.getElementById('return-time').value = nowLocal();
-    switchTab('ship');
+    const lastTab = localStorage.getItem('tab');
+    switchTab(lastTab || 'ship');
 
     document.getElementById('ship-scanner').addEventListener('keyup', (e) => {
       if (e.key === 'Enter') {
@@ -323,42 +328,51 @@
     }
 
     function gotoRegisterWithSN(sn){
-      switchTab('register');
-      document.getElementById('reg-sn').value = sn;
-      document.getElementById('reg-name').focus();
+      switchTab('list');
+      openCreate(sn);
     }
 
-    async function registerOne(){
+    function openCreate(prefillSN){
+      document.getElementById('create-sn').value = prefillSN || '';
+      document.getElementById('create-name').value = '';
+      document.getElementById('create-model').value = '';
+      document.getElementById('create-owner').value = '';
+      document.getElementById('create-modal').style.display = 'flex';
+    }
+    function closeCreate(){ document.getElementById('create-modal').style.display = 'none'; }
+    async function saveCreate(){
       const d = {
-        SN: document.getElementById('reg-sn').value.trim(),
-        Name: document.getElementById('reg-name').value.trim() || null,
-        Model: document.getElementById('reg-model').value.trim() || null,
-        Owner: document.getElementById('reg-owner').value.trim() || null
+        SN: document.getElementById('create-sn').value.trim(),
+        Name: document.getElementById('create-name').value.trim() || null,
+        Model: document.getElementById('create-model').value.trim() || null,
+        Owner: document.getElementById('create-owner').value.trim() || null
       };
+      if(!d.SN){ alert('请填写SN'); return; }
       const res = await fetch(api.register, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify([d]) });
-      const out = document.getElementById('reg-result');
-      if(res.ok){ out.textContent = '登记成功'; } else { const err = await res.json().catch(()=>({message:res.statusText})); out.textContent = `失败：${err.message || res.status}`; }
+      if(res.ok){ closeCreate(); loadDevices(); } else { const err = await res.json().catch(()=>({message:res.statusText})); alert(err.message || '登记失败'); }
     }
 
+    function openBulk(){ document.getElementById('bulk-modal').style.display = 'flex'; document.getElementById('bulk-result').textContent=''; }
+    function closeBulk(){ document.getElementById('bulk-modal').style.display = 'none'; }
     async function registerBulk(){
-      const raw = document.getElementById('reg-bulk').value.trim();
+      const raw = document.getElementById('bulk-text').value.trim();
       const lines = raw.split(/\n/).map(l=>l.trim()).filter(Boolean);
       const items = [];
       for(const line of lines){
-        const parts = line.split(',').map(x=>x.trim());
+        const parts = line.split(/[,\uFF0C;；]/).map(x=>x.trim());
         const [sn,name,model,owner] = parts;
         if(!sn) continue;
         items.push({ SN: sn, Name: name||null, Model: model||null, Owner: owner||null });
       }
-      if(items.length===0){ document.getElementById('reg-result').textContent='失败：无有效数据'; return; }
+      if(items.length===0){ document.getElementById('bulk-result').textContent='失败：无有效数据'; return; }
       const res = await fetch(api.register, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(items) });
-      const out = document.getElementById('reg-result');
-      if(res.ok){ const data = await res.json(); out.textContent = `批量成功：${data.count}`; } else { const err = await res.json().catch(()=>({message:res.statusText})); out.textContent = `失败：${err.message || res.status}`; }
+      const out = document.getElementById('bulk-result');
+      if(res.ok){ const data = await res.json(); out.textContent = `批量成功：${data.count}`; loadDevices(); } else { const err = await res.json().catch(()=>({message:res.statusText})); out.textContent = `失败：${err.message || res.status}`; }
     }
 
     async function downloadQrZip() {
       const raw = document.getElementById('qr-sns').value.trim();
-      const sns = raw.split(/\s|,|;|\n/).map(x=>x.trim()).filter(Boolean);
+      const sns = raw.split(/\s|,|;|，|；|\n/).map(x=>x.trim()).filter(Boolean);
       const res = await fetch(api.qr, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ SNs: sns }) });
       if (!res.ok) return alert('生成失败');
       const blob = await res.blob();
@@ -371,7 +385,7 @@
 
     function openQrPrint(){
       const raw = document.getElementById('qr-sns').value.trim();
-      const sns = raw.split(/\s|,|;|\n/).map(x=>x.trim()).filter(Boolean);
+      const sns = raw.split(/\s|,|;|，|；|\n/).map(x=>x.trim()).filter(Boolean);
       const url = new URL('/qrcode.html', location.origin);
       url.searchParams.set('sns', encodeURIComponent(sns.join(',')));
       window.open(url.toString(), '_blank');
@@ -385,11 +399,29 @@
   <div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); align-items:center; justify-content:center;">
     <div style="background:#fff; padding:16px; border-radius:12px; width:420px; box-shadow:0 10px 20px rgba(0,0,0,.15)">
       <h3 style="margin:0 0 12px;">编辑设备：<span id="edit-sn"></span></h3>
-      <div class="row"><label>名称</label><input id="edit-name" /></div>
-      <div class="row"><label>型号</label><input id="edit-model" /></div>
+      <div class="row"><label>设备名称</label><input id="edit-name" /></div>
+      <div class="row"><label>设备型号</label><input id="edit-model" /></div>
       <div class="row"><label>负责人</label><input id="edit-owner" /></div>
       <div class="row"><label>寄出地址</label><input id="edit-shipaddr" /></div>
       <div class="row"><button onclick="saveEdit()">保存</button><button onclick="closeEdit()" style="background:#999;">取消</button></div>
+    </div>
+  </div>
+  <div id="create-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:16px; border-radius:12px; width:420px; box-shadow:0 10px 20px rgba(0,0,0,.15)">
+      <h3 style="margin:0 0 12px;">新增设备</h3>
+      <div class="row"><label>SN</label><input id="create-sn" placeholder="例如 SN123456" /></div>
+      <div class="row"><label>设备名称</label><input id="create-name" placeholder="可选" /></div>
+      <div class="row"><label>设备型号</label><input id="create-model" placeholder="可选" /></div>
+      <div class="row"><label>负责人</label><input id="create-owner" placeholder="可选" /></div>
+      <div class="row"><button onclick="saveCreate()">保存</button><button onclick="closeCreate()" style="background:#999;">取消</button></div>
+    </div>
+  </div>
+  <div id="bulk-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:16px; border-radius:12px; width:520px; box-shadow:0 10px 20px rgba(0,0,0,.15)">
+      <h3 style="margin:0 0 12px;">批量登记</h3>
+      <div class="row"><label>SN 列表</label><textarea id="bulk-text" rows="8" style="width:100%;" placeholder="每行：SN,名称,型号,负责人；也可仅填SN"></textarea></div>
+      <div class="row"><button onclick="registerBulk()" style="background:#10b981;">提交批量登记</button><button onclick="closeBulk()" style="background:#999;">取消</button></div>
+      <div id="bulk-result" class="muted"></div>
     </div>
   </div>
 </body>

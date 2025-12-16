@@ -51,21 +51,24 @@ app.MapPost("/api/devices/register", async ([FromBody] IEnumerable<Device> items
 {
     var auth = ctx.RequestServices.GetRequiredService<AuthService>();
     if (!auth.IsAuthed(ctx)) return Results.Unauthorized();
+    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     foreach (var d in items)
     {
         if (string.IsNullOrWhiteSpace(d.SN)) continue;
-        var exists = await db.Devices.AnyAsync(x => x.SN == d.SN);
-        if (exists)
-        {
-            db.Devices.Update(d);
-        }
+        if (!seen.Add(d.SN)) continue;
+        var existing = await db.Devices.FirstOrDefaultAsync(x => x.SN == d.SN);
+        if (existing is null) { db.Devices.Add(d); }
         else
         {
-            db.Devices.Add(d);
+            existing.Name = d.Name;
+            existing.Model = d.Model;
+            existing.Owner = d.Owner;
+            existing.OwnerPhone = d.OwnerPhone;
+            db.Devices.Update(existing);
         }
     }
     await db.SaveChangesAsync();
-    return Results.Ok(new { count = items.Count() });
+    return Results.Ok(new { count = seen.Count });
 });
 
 app.MapPut("/api/devices/{sn}", async (string sn, [FromBody] DeviceUpdateRequest req, AppDb db, HttpContext ctx) =>

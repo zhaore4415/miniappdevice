@@ -6,6 +6,20 @@
 				"navigationBarTitleText": "设备列表",
 				"enablePullDownRefresh": true
 			}
+		},
+		{
+			"path": "pages/ship/index",
+			"style": {
+				"navigationBarTitleText": "寄出",
+				"enablePullDownRefresh": false
+			}
+		},
+		{
+			"path": "pages/return/index",
+			"style": {
+				"navigationBarTitleText": "归还",
+				"enablePullDownRefresh": false
+			}
 		}
 	],
 	"globalStyle": {
@@ -13,6 +27,16 @@
 		"navigationBarTitleText": "设备列表",
 		"navigationBarBackgroundColor": "#F8F8F8",
 		"backgroundColor": "#F8F8F8"
+	},
+	"tabBar": {
+		"color": "#666666",
+		"selectedColor": "#3b82f6",
+		"borderStyle": "black",
+		"list": [
+			{ "pagePath": "pages/ship/index", "text": "寄出" },
+			{ "pagePath": "pages/index/index", "text": "设备列表" },
+			{ "pagePath": "pages/return/index", "text": "归还" }
+		]
 	},
 	"uniIdRouter": {}
 }
