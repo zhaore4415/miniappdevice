@@ -20,6 +20,11 @@
     table { border-collapse: collapse; width: 100%; margin-top: 12px; background:#fff; }
     th, td { border: 1px solid #eee; padding: 10px; text-align: left; }
     .table-actions button{ padding:6px 10px; font-size:12px; }
+    .table-fixed{ table-layout: fixed; }
+    .table-fixed th, .table-fixed td{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .table-fixed th:nth-child(8), .table-fixed td:nth-child(8){ white-space: normal; }
+    .table-fixed th:nth-child(10), .table-fixed td:nth-child(10){ white-space: normal; }
+    .table-fixed th:last-child{ overflow: visible; }
     .tabs { display: flex; gap: 12px; }
     .tabs.vertical{ flex-direction: column; }
     .tabs.vertical button{ width: 100%; text-align: left; }
@@ -38,10 +43,19 @@
     .history{ scrollbar-width: none; -ms-overflow-style: none; }
     .history-item{ display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #eee; }
     .history-item:last-child{ border-bottom:none; }
+    .table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
     @media (max-width: 768px){
       .layout{ flex-direction: column; }
       .tabs.vertical{ flex-direction: row; flex-wrap: wrap; }
       .sidebar{ width:100%; }
+      main{ padding:12px; }
+      .card{ padding:12px; }
+      label{ min-width:80px; }
+      .row{ gap:12px; }
+      input, select, textarea, button { padding: 8px 10px; font-size: 13px; }
+      th, td { padding: 6px 8px; }
+      .tabs button { padding: 8px 10px; }
+      .table-actions button{ padding:4px 8px; font-size:12px; }
     }
   </style>
 </head>
@@ -67,8 +81,8 @@
 
   <div id="panel-ship" class="card">
     <div class="row"><label>寄出地址</label><input id="ship-address" placeholder="请输入寄出地址" /></div>
-    <div class="row"><label>经办人</label><input id="ship-operator" placeholder="可选" /></div>
-    <div class="row"><label>寄出时间</label><input id="ship-time" type="datetime-local" /></div>
+    <div class="row"><label>经手人</label><input id="ship-operator" placeholder="可选" /></div>
+    <div class="row"><label>时间</label><input id="ship-time" type="datetime-local" readonly /></div>
     <div class="row"><label>扫描/输入 SN</label><input id="ship-sn" placeholder="支持扫码或手输" /></div>
     <input id="ship-scanner" class="hidden-input" />
     <div class="row"><button onclick="submitShip()">提交寄出</button><button onclick="focusScanner('ship')">聚焦扫码枪</button></div>
@@ -80,8 +94,8 @@
   </div>
 
   <div id="panel-return" class="card" style="display:none;">
-    <div class="row"><label>经办人</label><input id="return-operator" placeholder="可选" /></div>
-    <div class="row"><label>归还时间</label><input id="return-time" type="datetime-local" /></div>
+    <div class="row"><label>经手人</label><input id="return-operator" placeholder="可选" /></div>
+    <div class="row"><label>时间</label><input id="return-time" type="datetime-local" readonly /></div>
     <div class="row"><label>扫描/输入 SN</label><input id="return-sn" placeholder="支持扫码或手输" /></div>
     <input id="return-scanner" class="hidden-input" />
     <div class="row"><button onclick="submitReturn()">提交归还</button><button onclick="focusScanner('return')">聚焦扫码枪</button></div>
@@ -89,14 +103,19 @@
   </div>
 
   <div id="panel-list" class="card" style="display:none;">
+    <div class="tabs" style="margin-bottom:16px;">
+      <button id="tab-highspeed" class="active" onclick="switchDeviceTab('highspeed')">高速相机</button>
+      <button id="tab-industrial" onclick="switchDeviceTab('industrial')">工业相机</button>
+      <button id="tab-all" onclick="switchDeviceTab('all')">全部</button>
+    </div>
     <div class="row">
       <label>筛选状态</label>
       <select id="filter-status" onchange="loadDevices()">
         <option value="">全部</option>
         <option value="Idle">空闲</option>
         <option value="Shipping">寄出中</option>
-        <option value="Repairing">维修中</option>
-        <option value="Scrapped">报废</option>
+        <!--<option value="Repairing">维修中</option>-->
+        <!--<option value="Scrapped">报废</option>-->
       </select>
       <label>搜索</label>
       <input id="filter-q" placeholder="按SN或名称" oninput="loadDevices()" />
@@ -105,10 +124,27 @@
       <button onclick="openBulk()" style="background:#10b981;">批量登记</button>
       <button onclick="deleteSelected()" style="background:#ef4444;">批量删除</button>
     </div>
-    <table>
-      <thead><tr><th>SN</th><th>名称</th><th>型号</th><th>状态</th><th>寄出地址</th><th>寄出时间</th><th>归还时间</th><th>操作</th><th>选择</th></tr></thead>
+    <div class="table-wrap">
+    <table class="table-fixed">
+      <colgroup>
+        <col style="width:90px" />
+        <col style="width:140px" />
+        <col style="width:120px" />
+        <col style="width:120px" />
+        <col style="width:140px" />
+        <col style="width:110px" />
+        <col style="width:170px" />
+        <col style="width:220px" />
+        <col style="width:110px" />
+        <col style="width:160px" />
+        <col style="width:140px" />
+        <col style="width:90px" />
+      </colgroup>
+      <thead><tr><th>状态</th><th>名称</th><th>型号</th><th>产品类型</th><th>SN</th><th>负责人</th><th>时间</th><th>地址</th><th>经手人</th><th>备注</th><th>操作</th><th>选择 <input id="select-all" type="checkbox" onchange="toggleSelectAll(this)"></th></tr></thead>
       <tbody id="device-tbody"></tbody>
     </table>
+    </div>
+    <div id="pager"></div>
   </div>
 
   <div id="panel-qrcode" class="card" style="display:none;">
@@ -141,11 +177,18 @@
     const statusNames = ['Idle','Shipping','Returned','Repairing','Scrapped'];
     let shipHistory = [];
     let marqueeTimer = null;
+    let currentDeviceTab = 'highspeed'; // 高速相机/工业相机页签，默认高速相机
+    let currentPage = 1;
+    const pageSize = 20;
+    let totalCount = 0;
+    let historyList = [];
+    let historyPage = 1;
+    const historyPageSize = 16;
 
     function nowLocal() {
       const d = new Date();
       d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-      return d.toISOString().slice(0,16);
+      return d.toISOString().slice(0,19);
     }
 
     function setMode(t){
@@ -170,13 +213,35 @@
       setMode(t);
       try{ localStorage.setItem('tab', t); }catch(e){}
       if (t==='ship') focusScanner('ship');
-      if (t==='return') focusScanner('return');
-      if (t==='list') loadDevices();
+      if (t==='return'){ focusScanner('return'); document.getElementById('return-time').value = nowLocal(); }
+      if (t==='list'){ syncDeviceTabUI(); loadDevices(); }
       if (t==='ship') startHistoryMarquee(); else stopHistoryMarquee();
+    }
+    
+    function switchDeviceTab(tab) {
+      // 更新当前页签
+      currentDeviceTab = tab;
+      currentPage = 1;
+      
+      // 更新UI显示
+      document.querySelectorAll('#panel-list .tabs button').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).classList.add('active');
+      
+      // 重新加载设备列表
+      loadDevices(tab);
+      
+      // 保存到localStorage
+      try{ localStorage.setItem('deviceTab', tab); }catch(e){}
+    }
+    function syncDeviceTabUI(){
+      document.querySelectorAll('#panel-list .tabs button').forEach(btn => btn.classList.remove('active'));
+      const id = `tab-${currentDeviceTab || 'highspeed'}`;
+      const el = document.getElementById(id);
+      if(el) el.classList.add('active');
     }
 
     function focusScanner(kind) {
-      const el = document.getElementById(kind==='ship' ? 'ship-scanner' : 'return-scanner');
+      const el = document.getElementById(kind==='ship' ? 'ship-sn' : 'return-sn');
       el.value = '';
       el.focus();
     }
@@ -185,6 +250,16 @@
     document.getElementById('return-time').value = nowLocal();
     const lastTab = localStorage.getItem('tab');
     switchTab(lastTab || 'ship');
+    
+    // 加载上次选择的设备页签
+    const lastDeviceTab = localStorage.getItem('deviceTab');
+    if (lastDeviceTab) {
+      currentDeviceTab = lastDeviceTab;
+      // 更新UI显示
+      document.querySelectorAll('#panel-list .tabs button').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(`tab-${lastDeviceTab}`).classList.add('active');
+    }
+    
     try{
       shipHistory = JSON.parse(localStorage.getItem('ship_history') || '[]');
       renderShipHistory();
@@ -208,9 +283,21 @@
       const s = extractSN(e.target.value);
       if(s !== e.target.value) e.target.value = s;
     });
+    document.getElementById('ship-sn').addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') {
+        const sn = extractSN(e.target.value.trim());
+        autoNavigateBySN(sn);
+      }
+    });
     document.getElementById('return-sn').addEventListener('input', (e)=>{
       const s = extractSN(e.target.value);
       if(s !== e.target.value) e.target.value = s;
+    });
+    document.getElementById('return-sn').addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') {
+        const sn = extractSN(e.target.value.trim());
+        autoNavigateBySN(sn);
+      }
     });
 
     function extractSN(v){
@@ -258,6 +345,7 @@
     })();
 
     async function submitShip() {
+      document.getElementById('ship-time').value = nowLocal();
       const sn = extractSN(document.getElementById('ship-sn').value.trim());
       const address = document.getElementById('ship-address').value.trim();
       const operator = document.getElementById('ship-operator').value.trim();
@@ -268,7 +356,7 @@
       if (res.ok) {
         const data = await res.json();
         txt.textContent = `寄出成功：${data.sn || data.SN || sn}`;
-        addShipHistory(data.SN || data.sn || sn, data.model || '', data.LastShipAt || data.lastShipAt || null);
+        addShipHistory(data.SN || data.sn || sn, data.model || '', data.LastEventAt || data.lastEventAt || data.LastShipAt || data.lastShipAt || null);
       } else {
         const err = await res.json().catch(()=>({ message: res.statusText }));
         const msg = err.message || res.status;
@@ -281,6 +369,7 @@
     }
 
     async function submitReturn() {
+      document.getElementById('return-time').value = nowLocal();
       const sn = extractSN(document.getElementById('return-sn').value.trim());
       const operator = document.getElementById('return-operator').value.trim();
       const returnAt = document.getElementById('return-time').value;
@@ -296,22 +385,37 @@
       }
     }
 
-    async function loadDevices() {
+    async function loadDevices(tab) {
       const q = document.getElementById('filter-q').value.trim();
       const status = document.getElementById('filter-status').value;
+      const currentTab = tab || currentDeviceTab;
       const url = new URL(api.list, location.origin);
       if (q) url.searchParams.set('q', q);
       if (status) url.searchParams.set('status', status);
+      // 仅在非“全部”时添加产品类型参数
+      if (currentTab && currentTab !== 'all') {
+        url.searchParams.set('product', currentTab);
+      }
+      url.searchParams.set('page', String(currentPage));
+      url.searchParams.set('pageSize', String(pageSize));
       const res = await fetch(url, { credentials: 'include' });
       const list = res.ok ? await res.json() : [];
+      const hdrTotal = res.headers.get('X-Total-Count');
+      totalCount = hdrTotal ? parseInt(hdrTotal) || 0 : list.length;
       const tbody = document.getElementById('device-tbody');
       tbody.innerHTML = '';
       for (const d of list) {
         const tr = document.createElement('tr');
         const sn = d.sn || d.SN;
-        tr.innerHTML = `<td>${sn}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${statusText(d.status)}</td><td>${d.lastShipAddress || ''}</td><td>${formatTime(d.lastShipAt)}</td><td>${formatTime(d.lastReturnAt)}</td><td class='table-actions'><button onclick="openEdit('${sn}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}')">编辑</button></td><td><input type="checkbox" onchange="toggleSelect(this,'${sn}')"></td>`;
+        const productType = (d.product || d.Product || '');
+        const productText = productType === 'industrial' ? '工业相机' : (productType === 'highspeed' ? '高速相机' : productType);
+        const timeVal = d.lastEventAt || d.LastEventAt || d.lastShipAt || d.LastShipAt || d.lastReturnAt || d.LastReturnAt;
+        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${productText}</td><td>${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td>${d.remark || d.Remark || ''}</td><td class='table-actions'><button onclick="openEdit('${sn}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}', '${escapeAttr(d.remark || d.Remark || '')}')">编辑</button> <button onclick="openHistory('${sn}')" style="background:#6b7280;">历史</button></td><td><input type="checkbox" data-sn="${sn}" onchange="toggleSelect(this,'${sn}')" ${selected.has(sn)?'checked':''}></td>`;
         tbody.appendChild(tr);
       }
+      updateSelectAll();
+      enhanceActions();
+      renderPager();
     }
 
     function formatTime(v) {
@@ -330,13 +434,15 @@
       return (v || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    function openEdit(sn, name, model, owner, shipaddr){
-      edit.sn = sn; edit.name = decodeHtml(name); edit.model = decodeHtml(model); edit.owner = decodeHtml(owner);
+    function openEdit(sn, name, model, owner, shipaddr, product, remark){
+      edit.sn = sn; edit.name = decodeHtml(name); edit.model = decodeHtml(model); edit.owner = decodeHtml(owner); edit.product = decodeHtml(product);
       document.getElementById('edit-sn').textContent = sn;
       document.getElementById('edit-name').value = edit.name || '';
       document.getElementById('edit-model').value = edit.model || '';
       document.getElementById('edit-owner').value = edit.owner || '';
       document.getElementById('edit-shipaddr').value = decodeHtml(shipaddr) || '';
+      document.getElementById('edit-remark').value = decodeHtml(remark) || '';
+      document.getElementById('edit-product').value = edit.product || 'highspeed';
       document.getElementById('modal').style.display = 'flex';
     }
 
@@ -351,12 +457,155 @@
         Name: document.getElementById('edit-name').value,
         Model: document.getElementById('edit-model').value,
         Owner: document.getElementById('edit-owner').value,
-        LastShipAddress: document.getElementById('edit-shipaddr').value
+        LastShipAddress: document.getElementById('edit-shipaddr').value,
+        Product: document.getElementById('edit-product').value,
+        Remark: document.getElementById('edit-remark').value
       };
       const res = await fetch(`/api/devices/${encodeURIComponent(edit.sn)}`, { method:'PUT', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(body) });
       if(res.ok){ closeEdit(); loadDevices(); } else { const err = await res.json().catch(async()=>({message: await res.text()})); alert(err.message || '保存失败'); }
     }
-    function toggleSelect(cb, sn){ if(cb.checked){ selected.add(sn);} else { selected.delete(sn);} }
+    function toggleSelect(cb, sn){ if(cb.checked){ selected.add(sn);} else { selected.delete(sn);} updateSelectAll(); }
+    function toggleSelectAll(cb){
+      const boxes = document.querySelectorAll('#device-tbody input[type="checkbox"]');
+      boxes.forEach(b=>{
+        b.checked = cb.checked;
+        const sn = b.getAttribute('data-sn');
+        if(cb.checked) selected.add(sn); else selected.delete(sn);
+      });
+    }
+    function updateSelectAll(){
+      const boxes = document.querySelectorAll('#device-tbody input[type="checkbox"]');
+      const allChecked = boxes.length>0 && Array.from(boxes).every(b=>b.checked);
+      const el = document.getElementById('select-all');
+      if(el) el.checked = allChecked;
+    }
+    function enhanceActions(){
+      const rows = document.querySelectorAll('#device-tbody tr');
+      rows.forEach(tr=>{
+        const cells = tr.querySelectorAll('td');
+        const sn = cells[4]?.textContent?.trim();
+        const act = tr.querySelector('.table-actions');
+        if(!sn || !act) return;
+        if(!act.querySelector('button[data-kind="history"]')){
+          const btn = document.createElement('button');
+          btn.textContent = '历史';
+          btn.style.background = '#6b7280';
+          btn.setAttribute('data-kind','history');
+          btn.onclick = ()=> openHistory(sn);
+          act.appendChild(btn);
+        }
+      });
+    }
+    async function openHistory(sn){
+      document.getElementById('history-title').textContent = sn;
+      document.getElementById('history-modal').style.display = 'flex';
+      await loadHistory(sn);
+    }
+    function closeHistory(){ document.getElementById('history-modal').style.display = 'none'; }
+    async function loadHistory(sn){
+      const resLogs = await fetch(`/api/logs/${encodeURIComponent(sn)}`, { credentials: 'include' });
+      let list = [];
+      if(resLogs.ok){
+        const raw = await resLogs.json();
+        const logs = raw.map(l=>{
+          const actRaw = String((l.action||l.Action||'')).trim();
+          const isReturn = actRaw.includes('归还') || /return/i.test(actRaw);
+          const isShip = actRaw.includes('寄出') || /ship/i.test(actRaw);
+          const at = l.at || l.At;
+          return {
+            sn,
+            action: isReturn ? '归还' : '寄出',
+            time: at,
+            address: l.address || l.Address || '',
+            operator: l.operator || l.Operator || '',
+            durationSeconds: null,
+            _isReturn: isReturn,
+            _isShip: isShip
+          };
+        });
+        logs.sort((a,b)=> {
+          const ta = new Date(a.time).getTime();
+          const tb = new Date(b.time).getTime();
+          if (ta !== tb) return ta - tb;
+          const pa = a._isShip ? 0 : 1;
+          const pb = b._isShip ? 0 : 1;
+          return pa - pb;
+        });
+        const stack = [];
+        for(const item of logs){
+          if(item._isShip){
+            stack.push(item);
+          }else if(item._isReturn){
+            const ship = stack.pop();
+            if(ship && ship.time){
+              const seconds = Math.floor((new Date(item.time) - new Date(ship.time)) / 1000);
+              item.durationSeconds = seconds >= 0 ? seconds : null;
+            }
+          }
+        }
+        logs.sort((a,b)=> new Date(b.time) - new Date(a.time));
+        list = logs.slice(0, 200).map(({sn, action, time, address, operator, durationSeconds})=>({ sn, action, time, address, operator, durationSeconds }));
+      }else{
+        const url = new URL(`/api/devices/${encodeURIComponent(sn)}/history`, location.origin);
+        url.searchParams.set('limit','200');
+        const res = await fetch(url, { credentials: 'include' });
+        const items = res.ok ? await res.json() : [];
+        list = items.map(x=>({
+          sn,
+          action: x.returnAt ? '归还' : '寄出',
+          time: x.returnAt || x.shipAt,
+          address: x.shipAddress || '',
+          operator: x.returnAt ? (x.returnOperator||'') : (x.shipOperator||''),
+          durationSeconds: x.durationSeconds || null
+        }));
+      }
+      historyList = list || [];
+      historyPage = 1;
+      renderHistoryPage();
+    }
+    function renderHistoryPage(){
+      const countEl = document.getElementById('history-count');
+      if(countEl) countEl.textContent = `（共 ${historyList.length} 条）`;
+      const tbody = document.getElementById('history-tbody');
+      if(!tbody) return;
+      const totalPages = Math.max(1, Math.ceil(historyList.length / historyPageSize));
+      if(historyPage > totalPages) historyPage = totalPages;
+      const start = (historyPage - 1) * historyPageSize;
+      const slice = historyList.slice(start, start + historyPageSize);
+      tbody.innerHTML = '';
+      for(let i=0; i<slice.length; i++){
+        const x = slice[i];
+        const tr = document.createElement('tr');
+        const typ = x.action || (x.returnAt ? '归还' : '寄出');
+        const time = x.time || x.returnAt || x.shipAt;
+        const addr = x.address || x.shipAddress || '';
+        const op = x.operator || x.returnOperator || x.shipOperator || '';
+        tr.innerHTML = `<td>${start + i + 1}</td><td>${typ}</td><td>${formatTime(time)}</td><td>${addr}</td><td>${op}</td><td>${formatDuration(x.durationSeconds)}</td>`;
+        tbody.appendChild(tr);
+      }
+      const pager = document.getElementById('history-pager');
+      if(pager){
+        const totalPages = Math.max(1, Math.ceil(historyList.length / historyPageSize));
+        pager.innerHTML = `
+          <div style="display:flex; align-items:center; gap:8px; padding:8px 0;">
+            <button ${historyPage<=1?'disabled':''} onclick="prevHistoryPage()">上一页</button>
+            <button ${historyPage>=totalPages?'disabled':''} onclick="nextHistoryPage()">下一页</button>
+            <span class="muted">第 ${historyPage} / ${totalPages} 页</span>
+          </div>
+        `;
+      }
+    }
+    function prevHistoryPage(){ if(historyPage>1){ historyPage--; renderHistoryPage(); } }
+    function nextHistoryPage(){ const totalPages = Math.max(1, Math.ceil(historyList.length / historyPageSize)); if(historyPage<totalPages){ historyPage++; renderHistoryPage(); } }
+    function formatDuration(s){
+      if(s === null || s === undefined) return '';
+      const total = Math.max(0, Math.floor(s));
+      const d = Math.floor(total / 86400);
+      const h = Math.floor((total % 86400) / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const sec = total % 60;
+      return `${d}天${h}小时${m}分钟${sec}秒`;
+    }
     async function deleteSelected(){
       if(selected.size===0){ alert('未选择'); return; }
       if(!confirm('确认删除选中设备？')) return;
@@ -374,6 +623,8 @@
       document.getElementById('create-name').value = '';
       document.getElementById('create-model').value = '';
       document.getElementById('create-owner').value = '';
+      // 设置默认产品类型为当前设备页签（“全部”时默认高速相机）
+      document.getElementById('create-product').value = (currentDeviceTab === 'all' ? 'highspeed' : currentDeviceTab);
       document.getElementById('create-modal').style.display = 'flex';
     }
     function closeCreate(){ document.getElementById('create-modal').style.display = 'none'; }
@@ -382,7 +633,8 @@
         SN: document.getElementById('create-sn').value.trim(),
         Name: document.getElementById('create-name').value.trim() || null,
         Model: document.getElementById('create-model').value.trim() || null,
-        Owner: document.getElementById('create-owner').value.trim() || null
+        Owner: document.getElementById('create-owner').value.trim() || null,
+        Product: document.getElementById('create-product').value // 使用用户选择的产品类型
       };
       if(!d.SN){ alert('请填写SN'); return; }
       const res = await fetch(api.register, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify([d]) });
@@ -399,7 +651,7 @@
         const parts = line.split(/[,\uFF0C;；]/).map(x=>x.trim());
         const [sn,name,model,owner] = parts;
         if(!sn) continue;
-        items.push({ SN: sn, Name: name||null, Model: model||null, Owner: owner||null });
+        items.push({ SN: sn, Name: name||null, Model: model||null, Owner: owner||null, Product: currentDeviceTab });
       }
       if(items.length===0){ document.getElementById('bulk-result').textContent='失败：无有效数据'; return; }
       const res = await fetch(api.register, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(items) });
@@ -458,7 +710,38 @@
     function stopHistoryMarquee(){
       if(marqueeTimer){ clearInterval(marqueeTimer); marqueeTimer = null; }
     }
+    function renderPager(){
+      const el = document.getElementById('pager');
+      if(!el) return;
+      const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+      if(currentPage > totalPages) currentPage = totalPages;
+      el.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px; padding:8px 0;">
+          <button ${currentPage<=1?'disabled':''} onclick="prevPage()">上一页</button>
+          <button ${currentPage>=totalPages?'disabled':''} onclick="nextPage()">下一页</button>
+          <span class="muted">第 ${currentPage} / ${totalPages} 页，共 ${totalCount} 条</span>
+        </div>
+      `;
+    }
+    function prevPage(){ if(currentPage>1){ currentPage--; loadDevices(); } }
+    function nextPage(){ const totalPages = Math.max(1, Math.ceil(totalCount / pageSize)); if(currentPage<totalPages){ currentPage++; loadDevices(); } }
   </script>
+  <div id="history-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:16px; border-radius:12px; width:680px; max-width:95vw; box-shadow:0 10px 20px rgba(0,0,0,.15)">
+      <h3 style="margin:0 0 12px;">寄出/归还历史：<span id="history-title"></span> <span id="history-count" class="muted"></span></h3>
+      <div class="table-wrap">
+      <table class="table-fixed">
+        <colgroup>
+          <col style="width:80px" /><col style="width:80px" /><col style="width:170px" /><col style="width:180px" /><col style="width:120px" /><col style="width:190px" />
+        </colgroup>
+        <thead><tr><th>序号</th><th>类型</th><th>时间</th><th>地址</th><th>经手人</th><th>耗时</th></tr></thead>
+        <tbody id="history-tbody"></tbody>
+      </table>
+      </div>
+      <div id="history-pager"></div>
+      <div style="margin-top:12px; display:flex; justify-content:flex-end;"><button onclick="closeHistory()" style="background:#999;">关闭</button></div>
+    </div>
+  </div>
   <div id="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); align-items:center; justify-content:center;">
     <div style="background:#fff; padding:16px; border-radius:12px; width:420px; box-shadow:0 10px 20px rgba(0,0,0,.15)">
       <h3 style="margin:0 0 12px;">编辑设备：<span id="edit-sn"></span></h3>
@@ -466,6 +749,11 @@
       <div class="row"><label>设备型号</label><input id="edit-model" /></div>
       <div class="row"><label>负责人</label><input id="edit-owner" /></div>
       <div class="row"><label>寄出地址</label><input id="edit-shipaddr" /></div>
+      <div class="row"><label>备注</label><input id="edit-remark" /></div>
+      <div class="row"><label>产品类型</label><select id="edit-product">
+        <option value="highspeed">高速相机</option>
+        <option value="industrial">工业相机</option>
+      </select></div>
       <div class="row"><button onclick="saveEdit()">保存</button><button onclick="closeEdit()" style="background:#999;">取消</button></div>
     </div>
   </div>
@@ -476,6 +764,10 @@
       <div class="row"><label>设备名称</label><input id="create-name" placeholder="可选" /></div>
       <div class="row"><label>设备型号</label><input id="create-model" placeholder="可选" /></div>
       <div class="row"><label>负责人</label><input id="create-owner" placeholder="可选" /></div>
+      <div class="row"><label>产品类型</label><select id="create-product">
+        <option value="highspeed">高速相机</option>
+        <option value="industrial">工业相机</option>
+      </select></div>
       <div class="row"><button onclick="saveCreate()">保存</button><button onclick="closeCreate()" style="background:#999;">取消</button></div>
     </div>
   </div>
