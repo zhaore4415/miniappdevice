@@ -40,7 +40,7 @@
   </view>
   </template>
   <script>
-  import cfg from '../../config.js'
+  import cfg from '../../config.js';
   export default {
     data(){
       return {

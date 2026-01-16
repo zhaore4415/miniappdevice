@@ -136,11 +136,10 @@
         <col style="width:170px" />
         <col style="width:220px" />
         <col style="width:110px" />
-        <col style="width:160px" />
         <col style="width:140px" />
         <col style="width:90px" />
       </colgroup>
-      <thead><tr><th>状态</th><th>名称</th><th>型号</th><th>产品类型</th><th>SN</th><th>负责人</th><th>时间</th><th>地址</th><th>经手人</th><th>备注</th><th>操作</th><th>选择 <input id="select-all" type="checkbox" onchange="toggleSelectAll(this)"></th></tr></thead>
+      <thead><tr><th>状态</th><th>名称</th><th>型号</th><th>产品类型</th><th>SN</th><th>负责人</th><th>时间</th><th>地址</th><th>经手人</th><th>操作</th><th>选择 <input id="select-all" type="checkbox" onchange="toggleSelectAll(this)"></th></tr></thead>
       <tbody id="device-tbody"></tbody>
     </table>
     </div>
@@ -246,8 +245,12 @@
       el.focus();
     }
 
-    document.getElementById('ship-time').value = nowLocal();
-    document.getElementById('return-time').value = nowLocal();
+    function updateTimeFields() {
+      document.getElementById('ship-time').value = nowLocal();
+      document.getElementById('return-time').value = nowLocal();
+    }
+    updateTimeFields();
+    setInterval(updateTimeFields, 1000);
     const lastTab = localStorage.getItem('tab');
     switchTab(lastTab || 'ship');
     
@@ -410,7 +413,7 @@
         const productType = (d.product || d.Product || '');
         const productText = productType === 'industrial' ? '工业相机' : (productType === 'highspeed' ? '高速相机' : productType);
         const timeVal = d.lastEventAt || d.LastEventAt || d.lastShipAt || d.LastShipAt || d.lastReturnAt || d.LastReturnAt;
-        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${productText}</td><td>${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td>${d.remark || d.Remark || ''}</td><td class='table-actions'><button onclick="openEdit('${sn}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}', '${escapeAttr(d.remark || d.Remark || '')}')">编辑</button> <button onclick="openHistory('${sn}')" style="background:#6b7280;">历史</button></td><td><input type="checkbox" data-sn="${sn}" onchange="toggleSelect(this,'${sn}')" ${selected.has(sn)?'checked':''}></td>`;
+        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${productText}</td><td>${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td class='table-actions'><button onclick="openEdit('${sn}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}')">编辑</button> <button onclick="openHistory('${sn}')" style="background:#6b7280;" data-kind="history">历史</button></td><td><input type="checkbox" data-sn="${sn}" onchange="toggleSelect(this,'${sn}')" ${selected.has(sn)?'checked':''}></td>`;
         tbody.appendChild(tr);
       }
       updateSelectAll();
@@ -434,14 +437,13 @@
       return (v || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    function openEdit(sn, name, model, owner, shipaddr, product, remark){
+    function openEdit(sn, name, model, owner, shipaddr, product){
       edit.sn = sn; edit.name = decodeHtml(name); edit.model = decodeHtml(model); edit.owner = decodeHtml(owner); edit.product = decodeHtml(product);
       document.getElementById('edit-sn').textContent = sn;
       document.getElementById('edit-name').value = edit.name || '';
       document.getElementById('edit-model').value = edit.model || '';
       document.getElementById('edit-owner').value = edit.owner || '';
       document.getElementById('edit-shipaddr').value = decodeHtml(shipaddr) || '';
-      document.getElementById('edit-remark').value = decodeHtml(remark) || '';
       document.getElementById('edit-product').value = edit.product || 'highspeed';
       document.getElementById('modal').style.display = 'flex';
     }
@@ -458,8 +460,7 @@
         Model: document.getElementById('edit-model').value,
         Owner: document.getElementById('edit-owner').value,
         LastShipAddress: document.getElementById('edit-shipaddr').value,
-        Product: document.getElementById('edit-product').value,
-        Remark: document.getElementById('edit-remark').value
+        Product: document.getElementById('edit-product').value
       };
       const res = await fetch(`/api/devices/${encodeURIComponent(edit.sn)}`, { method:'PUT', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(body) });
       if(res.ok){ closeEdit(); loadDevices(); } else { const err = await res.json().catch(async()=>({message: await res.text()})); alert(err.message || '保存失败'); }
@@ -749,7 +750,6 @@
       <div class="row"><label>设备型号</label><input id="edit-model" /></div>
       <div class="row"><label>负责人</label><input id="edit-owner" /></div>
       <div class="row"><label>寄出地址</label><input id="edit-shipaddr" /></div>
-      <div class="row"><label>备注</label><input id="edit-remark" /></div>
       <div class="row"><label>产品类型</label><select id="edit-product">
         <option value="highspeed">高速相机</option>
         <option value="industrial">工业相机</option>
