@@ -9,7 +9,7 @@
     body { font-family: system-ui, Arial; margin: 0; background:var(--bg); }
     header{ background:#fff; box-shadow:0 1px 8px rgba(0,0,0,.06); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; }
     h1 { font-size: 18px; margin:0; }
-    main{ padding:24px; max-width:1200px; margin:0 auto; }
+    main{ padding:16px; max-width:100%; margin:0 auto; }
     .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
     label { display: inline-block; min-width: 100px; color:#555; }
     input, select, textarea, button { padding: 10px 12px; font-size: 14px; border-radius:8px; border:1px solid #ccc; background:#fff; }
@@ -36,7 +36,7 @@
     body.mode-list{ --primary:#6366f1; --bg:#eef1ff; }
     body.mode-qrcode{ --primary:#f59e0b; --bg:#fff7e6; }
     .layout{ display:flex; gap:16px; }
-    .sidebar{ width:220px; }
+    .sidebar{ width:180px; }
     .content{ flex:1; }
     .history{ height: 260px; overflow-y: auto; -webkit-overflow-scrolling: touch; border:1px solid #eee; border-radius:8px; padding:8px; background:#fff; }
     .history::-webkit-scrollbar{ width:0; height:0; }
@@ -127,17 +127,17 @@
     <div class="table-wrap">
     <table class="table-fixed">
       <colgroup>
-        <col style="width:90px" />
-        <col style="width:140px" />
+        <col style="width:80px" />
         <col style="width:120px" />
-        <col style="width:120px" />
-        <col style="width:140px" />
-        <col style="width:110px" />
-        <col style="width:170px" />
-        <col style="width:220px" />
-        <col style="width:110px" />
-        <col style="width:140px" />
+        <col style="width:100px" />
+        <col style="width:100px" />
+        <col style="width:130px" />
         <col style="width:90px" />
+        <col style="width:150px" />
+        <col style="width:180px" />
+        <col style="width:90px" />
+        <col style="width:120px" />
+        <col style="width:80px" />
       </colgroup>
       <thead><tr><th>状态</th><th>名称</th><th>型号</th><th>产品类型</th><th>SN</th><th>负责人</th><th>时间</th><th>地址</th><th>经手人</th><th>操作</th><th>选择 <input id="select-all" type="checkbox" onchange="toggleSelectAll(this)"></th></tr></thead>
       <tbody id="device-tbody"></tbody>
@@ -349,13 +349,31 @@
 
     async function submitShip() {
       document.getElementById('ship-time').value = nowLocal();
-      const sn = extractSN(document.getElementById('ship-sn').value.trim());
+      const shipSnInput = document.getElementById('ship-sn');
+      const rawSn = shipSnInput.value.trim();
+      const txt = document.getElementById('ship-result');
+      
+      // 先判断SN输入框是否为空
+      if (!rawSn) {
+        txt.textContent = '失败：SN不能为空';
+        shipSnInput.focus();
+        return;
+      }
+      
+      // 提取并验证SN
+      const sn = extractSN(rawSn);
+      if (!sn) {
+        txt.textContent = '失败：SN格式不正确';
+        shipSnInput.focus();
+        return;
+      }
+      
       const address = document.getElementById('ship-address').value.trim();
       const operator = document.getElementById('ship-operator').value.trim();
       const shipAt = document.getElementById('ship-time').value;
       const body = { SN: sn, Address: address, Operator: operator || null, ShipAt: shipAt ? new Date(shipAt).toISOString() : null };
       const res = await fetch(api.ship, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
-      const txt = document.getElementById('ship-result');
+      
       if (res.ok) {
         const data = await res.json();
         txt.textContent = `寄出成功：${data.sn || data.SN || sn}`;
