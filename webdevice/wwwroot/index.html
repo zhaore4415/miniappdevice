@@ -106,7 +106,6 @@
     <div class="tabs" style="margin-bottom:16px;">
       <button id="tab-highspeed" class="active" onclick="switchDeviceTab('highspeed')">高速相机</button>
       <button id="tab-industrial" onclick="switchDeviceTab('industrial')">工业相机</button>
-      <button id="tab-all" onclick="switchDeviceTab('all')">全部</button>
     </div>
     <div class="row">
       <label>筛选状态</label>
@@ -130,7 +129,6 @@
         <col style="width:80px" />
         <col style="width:120px" />
         <col style="width:100px" />
-        <col style="width:100px" />
         <col style="width:130px" />
         <col style="width:90px" />
         <col style="width:150px" />
@@ -139,7 +137,7 @@
         <col style="width:120px" />
         <col style="width:80px" />
       </colgroup>
-      <thead><tr><th>状态</th><th>名称</th><th>型号</th><th>产品类型</th><th>SN</th><th>负责人</th><th>时间</th><th>地址</th><th>经手人</th><th>操作</th><th>选择 <input id="select-all" type="checkbox" onchange="toggleSelectAll(this)"></th></tr></thead>
+      <thead><tr><th>状态</th><th>名称</th><th>型号</th><th>SN</th><th>负责人</th><th>时间</th><th>地址</th><th>经手人</th><th>操作</th><th>选择 <input id="select-all" type="checkbox" onchange="toggleSelectAll(this)"></th></tr></thead>
       <tbody id="device-tbody"></tbody>
     </table>
     </div>
@@ -182,7 +180,7 @@
     let totalCount = 0;
     let historyList = [];
     let historyPage = 1;
-    const historyPageSize = 16;
+    const historyPageSize = 10;
 
     function nowLocal() {
       const d = new Date();
@@ -256,11 +254,14 @@
     
     // 加载上次选择的设备页签
     const lastDeviceTab = localStorage.getItem('deviceTab');
-    if (lastDeviceTab) {
+    if (lastDeviceTab && (lastDeviceTab === 'highspeed' || lastDeviceTab === 'industrial')) {
       currentDeviceTab = lastDeviceTab;
       // 更新UI显示
       document.querySelectorAll('#panel-list .tabs button').forEach(btn => btn.classList.remove('active'));
       document.getElementById(`tab-${lastDeviceTab}`).classList.add('active');
+    } else {
+      // 如果上次选择的是'all'或其他无效值，默认使用'highspeed'
+      currentDeviceTab = 'highspeed';
     }
     
     try{
@@ -431,7 +432,7 @@
         const productType = (d.product || d.Product || '');
         const productText = productType === 'industrial' ? '工业相机' : (productType === 'highspeed' ? '高速相机' : productType);
         const timeVal = d.lastEventAt || d.LastEventAt || d.lastShipAt || d.LastShipAt || d.lastReturnAt || d.LastReturnAt;
-        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${productText}</td><td>${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td class='table-actions'><button onclick="openEdit('${sn}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}')">编辑</button> <button onclick="openHistory('${sn}')" style="background:#6b7280;" data-kind="history">历史</button></td><td><input type="checkbox" data-sn="${sn}" onchange="toggleSelect(this,'${sn}')" ${selected.has(sn)?'checked':''}></td>`;
+        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td class='table-actions'><button onclick="openEdit('${sn}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}')">编辑</button> <button onclick="openHistory('${sn}')" style="background:#6b7280;" data-kind="history">历史</button></td><td><input type="checkbox" data-sn="${sn}" onchange="toggleSelect(this,'${sn}')" ${selected.has(sn)?'checked':''}></td>`;
         tbody.appendChild(tr);
       }
       updateSelectAll();
@@ -563,10 +564,10 @@
           }
         }
         logs.sort((a,b)=> new Date(b.time) - new Date(a.time));
-        list = logs.slice(0, 200).map(({sn, action, time, address, operator, durationSeconds})=>({ sn, action, time, address, operator, durationSeconds }));
+        list = logs.slice(0, 10).map(({sn, action, time, address, operator, durationSeconds})=>({ sn, action, time, address, operator, durationSeconds }));
       }else{
         const url = new URL(`/api/devices/${encodeURIComponent(sn)}/history`, location.origin);
-        url.searchParams.set('limit','200');
+        url.searchParams.set('limit','10');
         const res = await fetch(url, { credentials: 'include' });
         const items = res.ok ? await res.json() : [];
         list = items.map(x=>({
