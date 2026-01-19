@@ -265,7 +265,6 @@ app.MapPost("/api/qrcode/batch", async ([FromBody] QrBatchRequest req, HttpConte
             foreach (var sn in req.SNs)
             {
                 var url = $"{ctx.Request.Scheme}://{ctx.Request.Host}/?sn={Uri.EscapeDataString(sn)}";
-                url += $"&u=admin&p=admin123";
                 var pngBytes = QrGenerator.GeneratePng(url);
                 var entry = zip.CreateEntry($"{sn}.png");
                 await using var es = entry.Open();
@@ -285,7 +284,6 @@ app.MapGet("/api/qrcode/png", ([FromQuery] string sn, [FromQuery] string? token,
 {
     var url = $"{ctx.Request.Scheme}://{ctx.Request.Host}/?sn={Uri.EscapeDataString(sn)}";
     if (!string.IsNullOrEmpty(token)) url += $"&token={Uri.EscapeDataString(token)}";
-    url += $"&u=admin&p=admin123";
     var png = QrGenerator.GeneratePng(url);
     return Results.File(png, "image/png");
 });

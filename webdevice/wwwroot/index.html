@@ -306,12 +306,33 @@
 
     function extractSN(v){
       if(!v) return '';
-      const m = String(v).match(/sn=([^&#]+)/i);
-      if(m) return decodeURIComponent(m[1]);
+      const raw = String(v).trim();
+      // 优先用 URL 解析查询参数
       try{
-        if(/^https?:\/\//i.test(v)){ const u = new URL(v); const s = u.searchParams.get('sn'); if(s) return s; const parts = u.pathname.split('/').filter(Boolean); return parts.pop() || v; }
+        if(/^https?:\/\//i.test(raw)){
+          const u = new URL(raw);
+          const s = u.searchParams.get('sn');
+          if(s) return s.trim();
+          const parts = u.pathname.split('/').filter(Boolean);
+          const last = parts.pop();
+          if(last) return last.trim();
+        }
       }catch{}
-      return v;
+      // 回退：正则匹配 sn=，并去掉后续 & 或 #
+      const m = raw.match(/[?&]sn=([^&#]+)/i);
+      if(m){
+        const val = decodeURIComponent(m[1]).trim();
+        return val.split('&')[0].split('#')[0].trim();
+      }
+      // 回退：手动定位 sn= 并截取到分隔符
+      const idx = raw.toLowerCase().indexOf('sn=');
+      if(idx >= 0){
+        const rest = raw.slice(idx + 3);
+        const stop = rest.search(/[&#\s]/);
+        const val = stop >= 0 ? rest.slice(0, stop) : rest;
+        return decodeURIComponent(val).trim();
+      }
+      return raw;
     }
     async function autoNavigateBySN(sn){
       sn = extractSN(sn);

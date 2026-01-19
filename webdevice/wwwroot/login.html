@@ -18,13 +18,21 @@
   <div class="box">
     <h1>后台登录</h1>
     <label>用户名</label>
-    <input id="u" placeholder="" />
+    <input id="u" placeholder="" autocomplete="off" />
     <label>密码</label>
-    <input id="p" type="password" placeholder="" />
+    <input id="p" type="password" placeholder="" autocomplete="off" />
     <button onclick="login()">登录</button>
     <div id="msg" class="muted"></div>
   </div>
   <script>
+    (function clearInputs(){
+      try{
+        const u = document.getElementById('u');
+        const p = document.getElementById('p');
+        if(u) u.value = '';
+        if(p) p.value = '';
+      }catch(e){}
+    })();
     async function login(){
       const res = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, credentials: 'include', body: JSON.stringify({ Username: document.getElementById('u').value.trim(), Password: document.getElementById('p').value }) });
       if(res.ok){ setTimeout(() => location.href = '/', 0); } else { document.getElementById('msg').textContent = '登录失败'; }
