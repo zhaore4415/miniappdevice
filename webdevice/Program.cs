@@ -9,25 +9,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddDbContext<AppDb>(o => o.UseSqlite("Data Source=app.db"));
-builder.Services.AddSingleton<AuthService>();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors();
-app.Use(async (ctx, next) =>
-{
-    var path = ctx.Request.Path.Value?.ToLowerInvariant() ?? "";
-    var auth = ctx.RequestServices.GetRequiredService<AuthService>();
-    var protectedPages = new[] { "/", "/index.html" };
-    if (protectedPages.Contains(path) && !auth.IsAuthed(ctx))
-    {
-        var qs = ctx.Request.QueryString.Value ?? "";
-        ctx.Response.Redirect("/login.html" + qs);
-        return;
-    }
-    await next();
-});
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
@@ -60,8 +46,6 @@ app.MapGet("/api/devices/{sn}", async (string sn, AppDb db) =>
 
 app.MapPost("/api/devices/register", async ([FromBody] IEnumerable<Device> items, AppDb db, HttpContext ctx) =>
 {
-    var auth = ctx.RequestServices.GetRequiredService<AuthService>();
-    if (!auth.IsAuthed(ctx)) return Results.Unauthorized();
     var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     foreach (var d in items)
     {
@@ -85,8 +69,6 @@ app.MapPost("/api/devices/register", async ([FromBody] IEnumerable<Device> items
 
 app.MapPut("/api/devices/{sn}", async (string sn, [FromBody] DeviceUpdateRequest req, AppDb db, HttpContext ctx) =>
 {
-    var auth = ctx.RequestServices.GetRequiredService<AuthService>();
-    if (!auth.IsAuthed(ctx)) return Results.Unauthorized();
     var d = await db.Devices.FirstOrDefaultAsync(x => x.SN == sn);
     if (d is null) return Results.NotFound(new { message = "设备不存在" });
     if (req.Name != null) d.Name = string.IsNullOrWhiteSpace(req.Name) ? null : req.Name;
@@ -102,8 +84,6 @@ app.MapPut("/api/devices/{sn}", async (string sn, [FromBody] DeviceUpdateRequest
 });
 app.MapDelete("/api/devices", async ([FromBody] DeleteRequest req, AppDb db, HttpContext ctx) =>
 {
-    var auth = ctx.RequestServices.GetRequiredService<AuthService>();
-    if (!auth.IsAuthed(ctx)) return Results.Unauthorized();
     if (req.SNs is null || req.SNs.Count == 0) return Results.BadRequest(new { message = "无 SN" });
     var toDelete = await db.Devices.Where(d => req.SNs.Contains(d.SN)).ToListAsync();
     var logDel = db.Logs.Where(l => req.SNs.Contains(l.SN));
@@ -115,8 +95,6 @@ app.MapDelete("/api/devices", async ([FromBody] DeleteRequest req, AppDb db, Htt
 
 app.MapPost("/api/devices/ship", async ([FromBody] ShipRequest req, AppDb db, HttpContext ctx) =>
 {
-    var auth = ctx.RequestServices.GetRequiredService<AuthService>();
-    if (!auth.IsAuthed(ctx)) return Results.Unauthorized();
     try
     {
         var d = await db.Devices.FirstOrDefaultAsync(x => x.SN == req.SN);
@@ -147,8 +125,6 @@ app.MapPost("/api/devices/ship", async ([FromBody] ShipRequest req, AppDb db, Ht
 
 app.MapPost("/api/devices/return", async ([FromBody] ReturnRequest req, AppDb db, HttpContext ctx) =>
 {
-    var auth = ctx.RequestServices.GetRequiredService<AuthService>();
-    if (!auth.IsAuthed(ctx)) return Results.Unauthorized();
     try
     {
         var d = await db.Devices.FirstOrDefaultAsync(x => x.SN == req.SN);
@@ -264,9 +240,7 @@ app.MapPost("/api/qrcode/batch", async ([FromBody] QrBatchRequest req, HttpConte
         {
                 foreach (var sn in req.SNs)
                 {
-                    var url = $"{ctx.Request.Scheme}://{ctx.Request.Host}/?sn={Uri.EscapeDataString(sn)}";
-                    url += $"&u=admin&p=admin123";
-                    var pngBytes = QrGenerator.GeneratePng(url);
+                    var pngBytes = QrGenerator.GeneratePng(sn);
                     var entry = zip.CreateEntry($"{sn}.png");
                     await using var es = entry.Open();
                     await es.WriteAsync(pngBytes, 0, pngBytes.Length);
@@ -281,67 +255,12 @@ app.MapPost("/api/qrcode/batch", async ([FromBody] QrBatchRequest req, HttpConte
     }
 });
 
-app.MapGet("/api/qrcode/png", ([FromQuery] string sn, [FromQuery] string? token, [FromQuery] string? u, [FromQuery] string? p, HttpContext ctx) =>
+app.MapGet("/api/qrcode/png", ([FromQuery] string sn, HttpContext ctx) =>
 {
-    var url = $"{ctx.Request.Scheme}://{ctx.Request.Host}/?sn={Uri.EscapeDataString(sn)}";
-    if (!string.IsNullOrEmpty(token)) url += $"&token={Uri.EscapeDataString(token)}";
-    url += $"&u=admin&p=admin123";
-    var png = QrGenerator.GeneratePng(url);
+    var png = QrGenerator.GeneratePng(sn);
     return Results.File(png, "image/png");
 });
 
-app.MapPost("/api/auth/login", async ([FromBody] LoginRequest req, AppDb db, HttpContext ctx) =>
-{
-    var user = await db.Users.FirstOrDefaultAsync(u => u.Username == req.Username);
-    if (user is null) return Results.Unauthorized();
-    var ok = PasswordHasher.Verify(req.Password, user.PasswordHash, user.Salt);
-    if (!ok) return Results.Unauthorized();
-    var auth = ctx.RequestServices.GetRequiredService<AuthService>();
-    var token = auth.CreateSession(user.Username);
-    ctx.Response.Cookies.Append("auth", token, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax });
-    return Results.Ok(new { username = user.Username });
-});
-
-app.MapPost("/api/auth/logout", (HttpContext ctx) =>
-{
-    var auth = ctx.RequestServices.GetRequiredService<AuthService>();
-    var token = ctx.Request.Cookies["auth"];
-    if (token != null) auth.RemoveSession(token);
-    ctx.Response.Cookies.Delete("auth");
-    return Results.Ok();
-});
-
-app.MapGet("/api/auth/me", (HttpContext ctx) =>
-{
-    var auth = ctx.RequestServices.GetRequiredService<AuthService>();
-    var me = auth.GetUser(ctx);
-    return me is null ? Results.Unauthorized() : Results.Ok(new { username = me });
-});
-
-app.MapPost("/api/auth/create-token", async (HttpContext ctx, AppDb db) =>
-{
-    var auth = ctx.RequestServices.GetRequiredService<AuthService>();
-    var me = auth.GetUser(ctx);
-    if (me is null) return Results.Unauthorized();
-    var t = new AuthToken { Token = Guid.NewGuid().ToString("N"), Username = me, ExpireAt = DateTimeOffset.UtcNow.AddMinutes(30), Consumed = false };
-    db.AuthTokens.Add(t);
-    await db.SaveChangesAsync();
-    return Results.Ok(new TokenCreateResponse(t.Token, t.ExpireAt));
-});
-
-app.MapPost("/api/auth/login-token", async ([FromBody] TokenLoginRequest req, AppDb db, HttpContext ctx) =>
-{
-    var t = await db.AuthTokens.FirstOrDefaultAsync(x => x.Token == req.Token);
-    if (t is null) return Results.Unauthorized();
-    if (t.Consumed || t.ExpireAt < DateTimeOffset.UtcNow) return Results.Unauthorized();
-    var auth = ctx.RequestServices.GetRequiredService<AuthService>();
-    var cookieToken = auth.CreateSession(t.Username);
-    ctx.Response.Cookies.Append("auth", cookieToken, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax });
-    t.Consumed = true;
-    db.AuthTokens.Update(t);
-    await db.SaveChangesAsync();
-    return Results.Ok(new { username = t.Username });
-});
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDb>();
@@ -364,12 +283,6 @@ using (var scope = app.Services.CreateScope())
     if (!HasCol("LastEventAt")) db.Database.ExecuteSqlRaw("ALTER TABLE Devices ADD COLUMN LastEventAt TEXT");
     if (!HasCol("Remark")) db.Database.ExecuteSqlRaw("ALTER TABLE Devices ADD COLUMN Remark TEXT");
     db.Database.ExecuteSqlRaw("UPDATE Devices SET LastEventAt = COALESCE(LastReturnAt, LastShipAt) WHERE LastEventAt IS NULL AND (LastReturnAt IS NOT NULL OR LastShipAt IS NOT NULL)");
-    if (!await db.Users.AnyAsync())
-    {
-        var (hash, salt) = PasswordHasher.Hash("admin123");
-        db.Users.Add(new User { Username = "admin", PasswordHash = hash, Salt = salt });
-        await db.SaveChangesAsync();
-    }
 }
 app.Run();
 

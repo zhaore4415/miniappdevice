@@ -34,8 +34,6 @@
         const img = document.createElement('img');
         const url = new URL('/api/qrcode/png', location.origin);
         url.searchParams.set('sn', sn);
-        if(token) url.searchParams.set('token', token);
-        url.searchParams.set('u', 'admin'); url.searchParams.set('p', 'admin123');
         img.src = url.toString();
         const s = document.createElement('div');
         s.className = 'sn';

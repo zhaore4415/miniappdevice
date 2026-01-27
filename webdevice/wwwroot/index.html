@@ -62,9 +62,7 @@
 <body>
   <header>
     <h1>设备寄出/归还登记</h1>
-    <div>
-      <button onclick="logout()">退出登录</button>
-    </div>
+    <div></div>
   </header>
   <main>
 
@@ -157,11 +155,7 @@
   </main>
 
   <script>
-    async function ensureAuthed(){
-      const r = await fetch('/api/auth/me', { credentials: 'include' });
-      if(!r.ok){ location.href = '/login.html'; }
-    }
-    ensureAuthed();
+    // 登录已移除
     const api = {
       ship: '/api/devices/ship',
       ret: '/api/devices/return',
@@ -362,10 +356,6 @@
 
     (async function initFromQuery(){
       const p = new URLSearchParams(location.search);
-      const token = p.get('token');
-      if(token){
-        await fetch('/api/auth/login-token', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ token }) }).catch(()=>{});
-      }
       const sn = p.get('sn');
       if(sn){
         const pure = extractSN(sn);
@@ -729,10 +719,7 @@
       window.open(url.toString(), '_blank');
     }
 
-    async function logout(){
-      await fetch('/api/auth/logout', { method:'POST', credentials: 'include' });
-      location.href = '/login.html';
-    }
+    
     function addShipHistory(sn, model, at){
       const t = at ? new Date(at).toLocaleString() : new Date().toLocaleString();
       shipHistory.unshift({ sn, model, t });
