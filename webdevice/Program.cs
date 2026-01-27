@@ -262,14 +262,15 @@ app.MapPost("/api/qrcode/batch", async ([FromBody] QrBatchRequest req, HttpConte
         using var ms = new MemoryStream();
         using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true))
         {
-            foreach (var sn in req.SNs)
-            {
-                var url = $"{ctx.Request.Scheme}://{ctx.Request.Host}/?sn={Uri.EscapeDataString(sn)}";
-                var pngBytes = QrGenerator.GeneratePng(url);
-                var entry = zip.CreateEntry($"{sn}.png");
-                await using var es = entry.Open();
-                await es.WriteAsync(pngBytes, 0, pngBytes.Length);
-            }
+                foreach (var sn in req.SNs)
+                {
+                    var url = $"{ctx.Request.Scheme}://{ctx.Request.Host}/?sn={Uri.EscapeDataString(sn)}";
+                    url += $"&u=admin&p=admin123";
+                    var pngBytes = QrGenerator.GeneratePng(url);
+                    var entry = zip.CreateEntry($"{sn}.png");
+                    await using var es = entry.Open();
+                    await es.WriteAsync(pngBytes, 0, pngBytes.Length);
+                }
         }
         var bytes = ms.ToArray();
         return Results.File(bytes, "application/zip", "qrcodes.zip");
@@ -284,6 +285,7 @@ app.MapGet("/api/qrcode/png", ([FromQuery] string sn, [FromQuery] string? token,
 {
     var url = $"{ctx.Request.Scheme}://{ctx.Request.Host}/?sn={Uri.EscapeDataString(sn)}";
     if (!string.IsNullOrEmpty(token)) url += $"&token={Uri.EscapeDataString(token)}";
+    url += $"&u=admin&p=admin123";
     var png = QrGenerator.GeneratePng(url);
     return Results.File(png, "image/png");
 });

@@ -85,7 +85,7 @@
     <div class="row"><label>时间</label><input id="ship-time" type="datetime-local" readonly /></div>
     <div class="row"><label>扫描/输入 SN</label><input id="ship-sn" placeholder="支持扫码或手输" /></div>
     <input id="ship-scanner" class="hidden-input" />
-    <div class="row"><button onclick="submitShip()">提交寄出</button><button onclick="focusScanner('ship')">聚焦扫码枪</button></div>
+    <div class="row"><button onclick="submitShip()">提交寄出</button><button onclick="focusScanner('ship', false)">聚焦扫码枪</button></div>
     <div id="ship-result" class="muted"></div>
   </div>
   <div id="panel-ship-history" class="card">
@@ -98,7 +98,7 @@
     <div class="row"><label>时间</label><input id="return-time" type="datetime-local" readonly /></div>
     <div class="row"><label>扫描/输入 SN</label><input id="return-sn" placeholder="支持扫码或手输" /></div>
     <input id="return-scanner" class="hidden-input" />
-    <div class="row"><button onclick="submitReturn()">提交归还</button><button onclick="focusScanner('return')">聚焦扫码枪</button></div>
+    <div class="row"><button onclick="submitReturn()">提交归还</button><button onclick="focusScanner('return', false)">聚焦扫码枪</button></div>
     <div id="return-result" class="muted"></div>
   </div>
 
@@ -209,8 +209,8 @@
       document.getElementById('panel-qrcode').style.display = t==='qrcode'? 'block':'none';
       setMode(t);
       try{ localStorage.setItem('tab', t); }catch(e){}
-      if (t==='ship') focusScanner('ship');
-      if (t==='return'){ focusScanner('return'); document.getElementById('return-time').value = nowLocal(); }
+      if (t==='ship') focusScanner('ship', true);
+      if (t==='return'){ focusScanner('return', true); document.getElementById('return-time').value = nowLocal(); }
       if (t==='list'){ syncDeviceTabUI(); loadDevices(); }
       if (t==='ship') startHistoryMarquee(); else stopHistoryMarquee();
     }
@@ -237,9 +237,9 @@
       if(el) el.classList.add('active');
     }
 
-    function focusScanner(kind) {
+    function focusScanner(kind, clear = true) {
       const el = document.getElementById(kind==='ship' ? 'ship-sn' : 'return-sn');
-      el.value = '';
+      if(clear) el.value = '';
       el.focus();
     }
 
@@ -344,11 +344,11 @@
         if(status === 'Idle'){
           switchTab('ship');
           document.getElementById('ship-sn').value = sn;
-          focusScanner('ship');
+          focusScanner('ship', false);
         }else if(status === 'Shipping'){
           switchTab('return');
           document.getElementById('return-sn').value = sn;
-          focusScanner('return');
+          focusScanner('return', false);
         }else{
           switchTab('list');
         }
@@ -367,7 +367,14 @@
         await fetch('/api/auth/login-token', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ token }) }).catch(()=>{});
       }
       const sn = p.get('sn');
-      if(sn){ await autoNavigateBySN(sn); }
+      if(sn){
+        const pure = extractSN(sn);
+        const shipInput = document.getElementById('ship-sn');
+        const retInput = document.getElementById('return-sn');
+        if(shipInput) shipInput.value = pure;
+        if(retInput) retInput.value = pure;
+        await autoNavigateBySN(pure);
+      }
     })();
 
     async function submitShip() {
