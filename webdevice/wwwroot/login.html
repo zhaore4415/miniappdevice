@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>登录</title>
+  <style>
+    :root{ --primary:#3b82f6; --bg:#f5f6fa; }
+    body { font-family: system-ui, Arial; margin: 0; background:var(--bg); }
+    header{ background:#fff; box-shadow:0 1px 8px rgba(0,0,0,.06); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; }
+    h1 { font-size: 18px; margin:0; }
+    main{ padding:16px; max-width:400px; margin:0 auto; }
+    .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+    label { display: inline-block; min-width: 80px; color:#555; }
+    input, select, textarea, button { padding: 10px 12px; font-size: 14px; border-radius:8px; border:1px solid #ccc; background:#fff; }
+    button{ background:var(--primary); color:#fff; border:none; cursor:pointer; }
+    .card { background:#fff; border: 1px solid #eee; padding: 16px; border-radius: 12px; margin-top: 12px; box-shadow:0 6px 16px rgba(0,0,0,.06); }
+    .muted { color: #666; font-size: 12px; }
+    .login-form { margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>设备管理系统</h1>
+    <div></div>
+  </header>
+  <main>
+    <div class="card login-form">
+      <h2 style="margin-top: 0;">登录</h2>
+      <div class="row"><label>用户名</label><input id="u" placeholder="请输入用户名" /></div>
+      <div class="row"><label>密码</label><input id="p" type="password" placeholder="" /></div>
+      <div class="row"><button onclick="login()">登录</button></div>
+      <div id="login-result" class="muted"></div>
+    </div>
+  </main>
+  <script>
+    async function login() {
+      const u = document.getElementById('u').value.trim();
+      const p = document.getElementById('p').value.trim();
+      const r = document.getElementById('login-result');
+      if(!u || !p){ r.textContent = '请填写用户名和密码'; return; }
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ Username: u, Password: p })
+      });
+      if(res.ok){ location.href = '/'; } else {
+        const err = await res.json().catch(()=>({ message: res.statusText }));
+        r.textContent = '登录失败：' + (err.message || res.status);
+      }
+    }
+    document.getElementById('p').addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') login();
+    });
+    document.getElementById('u').addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') document.getElementById('p').focus();
+    });
+  </script>
+</body>
+</html>

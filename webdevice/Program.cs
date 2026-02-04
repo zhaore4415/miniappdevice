@@ -10,12 +10,66 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddDbContext<AppDb>(o => o.UseSqlite("Data Source=app.db"));
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.AddSingleton<AuthService>();
 var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors();
+app.UseCookiePolicy(new CookiePolicyOptions {
+    MinimumSameSitePolicy = SameSiteMode.Lax
+});
 app.UseDefaultFiles();
 app.UseStaticFiles();
+
+// 登录检查中间件
+var authService = app.Services.GetRequiredService<AuthService>();
+app.Use(async (context, next) => {
+    // 不需要登录的路径
+    var path = context.Request.Path.Value ?? "";
+    if (path == "/login.html" || path == "/api/login" || path == "/api/logout" || path.StartsWith("/swagger") || path.StartsWith("/css") || path.StartsWith("/js") || path.StartsWith("/lib")) {
+        await next();
+        return;
+    }
+    
+    // 设备列表API允许未登录访问
+    if (path == "/api/devices" && context.Request.Method == "GET") {
+        await next();
+        return;
+    }
+    
+    // 设备历史API允许未登录访问
+    if (path.StartsWith("/api/logs/") && context.Request.Method == "GET") {
+        await next();
+        return;
+    }
+    
+    // 设备历史API允许未登录访问
+    if (path.StartsWith("/api/devices/") && path.EndsWith("/history") && context.Request.Method == "GET") {
+        await next();
+        return;
+    }
+    
+    // 二维码生成API允许未登录访问
+    if (path == "/api/qrcode/png" && context.Request.Method == "GET") {
+        await next();
+        return;
+    }
+    
+    // 检查登录状态
+    if (!authService.IsAuthed(context)) {
+        // 如果是API请求，返回401
+        if (path.StartsWith("/api")) {
+            context.Response.StatusCode = 401;
+            await context.Response.WriteAsJsonAsync(new { message = "未登录" });
+            return;
+        }
+        // 否则允许访问，但前端会限制功能
+        await next();
+        return;
+    }
+    
+    await next();
+});
 
 app.MapGet("/api/devices", async ([FromQuery] string? q, [FromQuery] DeviceStatus? status, [FromQuery] string? product, [FromQuery] int? page, [FromQuery] int? pageSize, AppDb db, HttpContext ctx) =>
 {
@@ -261,8 +315,37 @@ app.MapGet("/api/qrcode/png", ([FromQuery] string sn, HttpContext ctx) =>
     return Results.File(png, "image/png");
 });
 
-using (var scope = app.Services.CreateScope())
+// 登录相关API
+app.MapPost("/api/login", async ([FromBody] LoginRequest req, AppDb db, HttpContext ctx, AuthService auth) =>
 {
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Username == req.Username);
+    if (user is null) return Results.BadRequest(new { message = "用户名或密码错误" });
+    if (!PasswordHasher.Verify(req.Password, user.PasswordHash, user.Salt))
+        return Results.BadRequest(new { message = "用户名或密码错误" });
+    
+    var token = auth.CreateSession(user.Username);
+    ctx.Response.Cookies.Append("auth", token, new CookieOptions { HttpOnly = true, Secure = false, SameSite = SameSiteMode.Lax });
+    return Results.Ok(new { username = user.Username });
+});
+
+app.MapPost("/api/logout", (HttpContext ctx, AuthService auth) =>
+{
+    var token = ctx.Request.Cookies["auth"];
+    if (token != null) auth.RemoveSession(token);
+    ctx.Response.Cookies.Delete("auth");
+    return Results.Ok();
+});
+
+app.MapGet("/api/me", (HttpContext ctx, AuthService auth) =>
+{
+    var user = auth.GetUser(ctx);
+    if (user == null) return Results.BadRequest(new { message = "未登录" });
+    return Results.Ok(new { username = user });
+});
+
+// 数据库初始化
+app.Lifetime.ApplicationStarted.Register(async () => {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDb>();
     db.Database.EnsureCreated();
     using var conn = db.Database.GetDbConnection();
@@ -283,7 +366,16 @@ using (var scope = app.Services.CreateScope())
     if (!HasCol("LastEventAt")) db.Database.ExecuteSqlRaw("ALTER TABLE Devices ADD COLUMN LastEventAt TEXT");
     if (!HasCol("Remark")) db.Database.ExecuteSqlRaw("ALTER TABLE Devices ADD COLUMN Remark TEXT");
     db.Database.ExecuteSqlRaw("UPDATE Devices SET LastEventAt = COALESCE(LastReturnAt, LastShipAt) WHERE LastEventAt IS NULL AND (LastReturnAt IS NOT NULL OR LastShipAt IS NOT NULL)");
-}
+    
+    // 添加默认用户
+    var defaultUser = await db.Users.FirstOrDefaultAsync(u => u.Username == "admin");
+    if (defaultUser is null)
+    {
+        var (hash, salt) = PasswordHasher.Hash("admin123");
+        db.Users.Add(new User { Username = "admin", PasswordHash = hash, Salt = salt });
+        await db.SaveChangesAsync();
+    }
+});
 app.Run();
 
 public enum DeviceStatus

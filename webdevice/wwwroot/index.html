@@ -117,9 +117,9 @@
       <label>搜索</label>
       <input id="filter-q" placeholder="按SN或名称" oninput="loadDevices()" />
       <button onclick="loadDevices()">刷新</button>
-      <button onclick="openCreate()" style="background:#0ea5e9;">新增设备</button>
-      <button onclick="openBulk()" style="background:#10b981;">批量登记</button>
-      <button onclick="deleteSelected()" style="background:#ef4444;">批量删除</button>
+      <button id="btn-create" onclick="openCreate()" style="background:#0ea5e9;">新增设备</button>
+      <button id="btn-bulk" onclick="openBulk()" style="background:#10b981;">批量登记</button>
+      <button id="btn-delete" onclick="deleteSelected()" style="background:#ef4444;">批量删除</button>
     </div>
     <div class="table-wrap">
     <table class="table-fixed">
@@ -155,14 +155,45 @@
   </main>
 
   <script>
-    // 登录已移除
     const api = {
+      login: '/api/login',
+      logout: '/api/logout',
       ship: '/api/devices/ship',
       ret: '/api/devices/return',
       list: '/api/devices',
       qr: '/api/qrcode/batch',
       register: '/api/devices/register'
     };
+    
+    let isLoggedIn = false;
+    
+    // 检查登录状态
+    async function checkLogin() {
+      try {
+        const res = await fetch('/api/me', { credentials: 'include' });
+        if (!res.ok) {
+          document.querySelector('header h1').textContent = '设备管理系统';
+          document.querySelector('header div').innerHTML = `<button onclick="location.href='/login.html'" style="background:#3b82f6; padding:6px 10px; font-size:12px;">登录</button>`;
+          isLoggedIn = false;
+          return false;
+        }
+        const user = await res.json();
+        document.querySelector('header h1').textContent = `设备管理系统 - ${user.username}`;
+        document.querySelector('header div').innerHTML = `<button onclick="logout()" style="background:#999; padding:6px 10px; font-size:12px;">退出登录</button>`;
+        isLoggedIn = true;
+        return true;
+      } catch {
+        document.querySelector('header h1').textContent = '设备管理系统';
+        document.querySelector('header div').innerHTML = `<button onclick="location.href='/login.html'" style="background:#3b82f6; padding:6px 10px; font-size:12px;">登录</button>`;
+        isLoggedIn = false;
+        return false;
+      }
+    }
+    
+    async function logout() {
+      await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+      location.href = '/login.html';
+    }
     const edit = { sn:'', name:'', model:'', owner:'', phone:'' };
     const selected = new Set();
     const statusNames = ['Idle','Shipping','Returned','Repairing','Scrapped'];
@@ -195,6 +226,11 @@
     }
 
     function switchTab(t) {
+      // 未登录时，只允许访问设备列表
+      if (!isLoggedIn && t !== 'list') {
+        t = 'list';
+      }
+      
       document.getElementById('panel-ship').style.display = t==='ship'? 'block':'none';
       const shipHist = document.getElementById('panel-ship-history');
       if (shipHist) shipHist.style.display = t==='ship'? 'block':'none';
@@ -243,25 +279,53 @@
     }
     updateTimeFields();
     setInterval(updateTimeFields, 1000);
-    const lastTab = localStorage.getItem('tab');
-    switchTab(lastTab || 'ship');
+    // 检查登录状态
+    (async function() {
+      await checkLogin();
+      
+      // 根据登录状态显示或隐藏按钮
+      updateUIButtons();
+      
+      const lastTab = localStorage.getItem('tab');
+      switchTab(isLoggedIn ? (lastTab || 'ship') : 'list');
+      
+      // 加载上次选择的设备页签
+      const lastDeviceTab = localStorage.getItem('deviceTab');
+      if (lastDeviceTab && (lastDeviceTab === 'highspeed' || lastDeviceTab === 'industrial')) {
+        currentDeviceTab = lastDeviceTab;
+        // 更新UI显示
+        document.querySelectorAll('#panel-list .tabs button').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`tab-${lastDeviceTab}`).classList.add('active');
+      } else {
+        // 如果上次选择的是'all'或其他无效值，默认使用'highspeed'
+        currentDeviceTab = 'highspeed';
+      }
+      
+      try{
+        shipHistory = JSON.parse(localStorage.getItem('ship_history') || '[]');
+        renderShipHistory();
+      }catch{}
+    })();
     
-    // 加载上次选择的设备页签
-    const lastDeviceTab = localStorage.getItem('deviceTab');
-    if (lastDeviceTab && (lastDeviceTab === 'highspeed' || lastDeviceTab === 'industrial')) {
-      currentDeviceTab = lastDeviceTab;
-      // 更新UI显示
-      document.querySelectorAll('#panel-list .tabs button').forEach(btn => btn.classList.remove('active'));
-      document.getElementById(`tab-${lastDeviceTab}`).classList.add('active');
-    } else {
-      // 如果上次选择的是'all'或其他无效值，默认使用'highspeed'
-      currentDeviceTab = 'highspeed';
+    function updateUIButtons() {
+      // 显示或隐藏设备列表页面的按钮
+      const btnCreate = document.getElementById('btn-create');
+      const btnBulk = document.getElementById('btn-bulk');
+      const btnDelete = document.getElementById('btn-delete');
+      
+      if (btnCreate) btnCreate.style.display = isLoggedIn ? 'block' : 'none';
+      if (btnBulk) btnBulk.style.display = isLoggedIn ? 'block' : 'none';
+      if (btnDelete) btnDelete.style.display = isLoggedIn ? 'block' : 'none';
+      
+      // 显示或隐藏侧边栏标签
+      const tabShip = document.getElementById('tab-ship');
+      const tabReturn = document.getElementById('tab-return');
+      const tabQrcode = document.getElementById('tab-qrcode');
+      
+      if (tabShip) tabShip.style.display = isLoggedIn ? 'block' : 'none';
+      if (tabReturn) tabReturn.style.display = isLoggedIn ? 'block' : 'none';
+      if (tabQrcode) tabQrcode.style.display = isLoggedIn ? 'block' : 'none';
     }
-    
-    try{
-      shipHistory = JSON.parse(localStorage.getItem('ship_history') || '[]');
-      renderShipHistory();
-    }catch{}
 
     document.getElementById('ship-scanner').addEventListener('keyup', (e) => {
       if (e.key === 'Enter') {
@@ -451,7 +515,7 @@
         const productType = (d.product || d.Product || '');
         const productText = productType === 'industrial' ? '工业相机' : (productType === 'highspeed' ? '高速相机' : productType);
         const timeVal = d.lastEventAt || d.LastEventAt || d.lastShipAt || d.LastShipAt || d.lastReturnAt || d.LastReturnAt;
-        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td class='table-actions'><button onclick="openEdit('${sn}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}')">编辑</button> <button onclick="openHistory('${sn}')" style="background:#6b7280;" data-kind="history">历史</button></td><td><input type="checkbox" data-sn="${sn}" onchange="toggleSelect(this,'${sn}')" ${selected.has(sn)?'checked':''}></td>`;
+        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td class='table-actions'>${isLoggedIn ? `<button onclick="openEdit('${sn}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}')">编辑</button> ` : ''}<button onclick="openHistory('${sn}')" style="background:#6b7280;" data-kind="history">历史</button></td><td><input type="checkbox" data-sn="${sn}" onchange="toggleSelect(this,'${sn}')" ${selected.has(sn)?'checked':''} ${!isLoggedIn ? 'disabled' : ''}></td>`;
         tbody.appendChild(tr);
       }
       updateSelectAll();
