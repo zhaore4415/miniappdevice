@@ -44,7 +44,40 @@
     .history-item{ display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #eee; }
     .history-item:last-child{ border-bottom:none; }
     .table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
-    @media (max-width: 768px){
+    
+    /* 表单与反馈布局 */
+    .form-with-feedback {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+    .form-content {
+      flex: 1;
+    }
+    .feedback-content {
+      width: 300px;
+      min-width: 250px;
+      padding: 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      background-color: #f8fafc;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .feedback-message {
+        font-size: 18px;
+        font-weight: 600;
+        color: #334155;
+        text-align: center;
+        line-height: 1.5;
+      }
+      .feedback-message:empty {
+        display: none;
+      }
+      
+      @media (max-width: 768px){
       .layout{ flex-direction: column; }
       .tabs.vertical{ flex-direction: row; flex-wrap: wrap; }
       .sidebar{ width:100%; }
@@ -56,6 +89,42 @@
       th, td { padding: 6px 8px; }
       .tabs button { padding: 8px 10px; }
       .table-actions button{ padding:4px 8px; font-size:12px; }
+      
+      /* 移动端表单布局 */
+      .form-with-feedback {
+        flex-direction: column;
+        gap: 16px;
+      }
+      .feedback-content {
+        width: 100%;
+        min-width: unset;
+        min-height: 140px;
+        box-sizing: border-box;
+        padding: 16px;
+      }
+      .feedback-message {
+        font-size: 16px;
+        font-weight: 500;
+        word-break: break-word;
+      }
+    }
+    
+    /* 小屏幕设备优化 */
+    @media (max-width: 480px){
+      .feedback-content {
+        padding: 12px;
+        min-height: 120px;
+      }
+      .feedback-message {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .card {
+        padding: 10px;
+      }
+      main {
+        padding: 8px;
+      }
     }
   </style>
 </head>
@@ -78,13 +147,19 @@
     <div class="content">
 
   <div id="panel-ship" class="card">
-    <div class="row"><label>寄出地址</label><input id="ship-address" placeholder="请输入寄出地址" /></div>
-    <div class="row"><label>经手人</label><input id="ship-operator" placeholder="可选" /></div>
-    <div class="row"><label>时间</label><input id="ship-time" type="datetime-local" readonly /></div>
-    <div class="row"><label>扫描/输入 SN</label><input id="ship-sn" placeholder="支持扫码或手输" /></div>
-    <input id="ship-scanner" class="hidden-input" />
-    <div class="row"><button onclick="submitShip()">提交寄出</button><button onclick="focusScanner('ship', false)">聚焦扫码枪</button></div>
-    <div id="ship-result" class="muted"></div>
+    <div class="form-with-feedback">
+      <div class="form-content">
+        <div class="row"><label>寄出地址</label><input id="ship-address" placeholder="请输入寄出地址" /></div>
+        <div class="row"><label>经手人</label><input id="ship-operator" placeholder="可选" /></div>
+        <div class="row"><label>时间</label><input id="ship-time" type="datetime-local" readonly /></div>
+        <div class="row"><label>扫描/输入 SN</label><input id="ship-sn" placeholder="支持扫码或手输" /></div>
+        <input id="ship-scanner" class="hidden-input" />
+        <div class="row"><button onclick="submitShip()">提交寄出</button><button onclick="focusScanner('ship', false)">聚焦扫码枪</button></div>
+      </div>
+      <div class="feedback-content">
+        <div id="ship-result" class="feedback-message"></div>
+      </div>
+    </div>
   </div>
   <div id="panel-ship-history" class="card">
     <div class="row"><label>已完成登记</label><div style="flex:1;"></div></div>
@@ -92,18 +167,25 @@
   </div>
 
   <div id="panel-return" class="card" style="display:none;">
-    <div class="row"><label>经手人</label><input id="return-operator" placeholder="可选" /></div>
-    <div class="row"><label>时间</label><input id="return-time" type="datetime-local" readonly /></div>
-    <div class="row"><label>扫描/输入 SN</label><input id="return-sn" placeholder="支持扫码或手输" /></div>
-    <input id="return-scanner" class="hidden-input" />
-    <div class="row"><button onclick="submitReturn()">提交归还</button><button onclick="focusScanner('return', false)">聚焦扫码枪</button></div>
-    <div id="return-result" class="muted"></div>
+    <div class="form-with-feedback">
+      <div class="form-content">
+        <div class="row"><label>经手人</label><input id="return-operator" placeholder="可选" /></div>
+        <div class="row"><label>时间</label><input id="return-time" type="datetime-local" readonly /></div>
+        <div class="row"><label>扫描/输入 SN</label><input id="return-sn" placeholder="支持扫码或手输" /></div>
+        <input id="return-scanner" class="hidden-input" />
+        <div class="row"><button onclick="submitReturn()">提交归还</button><button onclick="focusScanner('return', false)">聚焦扫码枪</button></div>
+      </div>
+      <div class="feedback-content">
+        <div id="return-result" class="feedback-message"></div>
+      </div>
+    </div>
   </div>
 
   <div id="panel-list" class="card" style="display:none;">
     <div class="tabs" style="margin-bottom:16px;">
       <button id="tab-highspeed" class="active" onclick="switchDeviceTab('highspeed')">高速相机</button>
       <button id="tab-industrial" onclick="switchDeviceTab('industrial')">工业相机</button>
+      <button id="tab-external" onclick="switchDeviceTab('external')">外部流转</button>
     </div>
     <div class="row">
       <label>筛选状态</label>
@@ -291,7 +373,7 @@
       
       // 加载上次选择的设备页签
       const lastDeviceTab = localStorage.getItem('deviceTab');
-      if (lastDeviceTab && (lastDeviceTab === 'highspeed' || lastDeviceTab === 'industrial')) {
+      if (lastDeviceTab && (lastDeviceTab === 'highspeed' || lastDeviceTab === 'industrial' || lastDeviceTab === 'external')) {
         currentDeviceTab = lastDeviceTab;
         // 更新UI显示
         document.querySelectorAll('#panel-list .tabs button').forEach(btn => btn.classList.remove('active'));
@@ -513,7 +595,7 @@
         const tr = document.createElement('tr');
         const sn = d.sn || d.SN;
         const productType = (d.product || d.Product || '');
-        const productText = productType === 'industrial' ? '工业相机' : (productType === 'highspeed' ? '高速相机' : productType);
+        const productText = productType === 'industrial' ? '工业相机' : (productType === 'highspeed' ? '高速相机' : (productType === 'external' ? '外部流转' : productType));
         const timeVal = d.lastEventAt || d.LastEventAt || d.lastShipAt || d.LastShipAt || d.lastReturnAt || d.LastReturnAt;
         tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td class='table-actions'>${isLoggedIn ? `<button onclick="openEdit('${sn}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}')">编辑</button> ` : ''}<button onclick="openHistory('${sn}')" style="background:#6b7280;" data-kind="history">历史</button></td><td><input type="checkbox" data-sn="${sn}" onchange="toggleSelect(this,'${sn}')" ${selected.has(sn)?'checked':''} ${!isLoggedIn ? 'disabled' : ''}></td>`;
         tbody.appendChild(tr);
@@ -852,6 +934,7 @@
       <div class="row"><label>产品类型</label><select id="edit-product">
         <option value="highspeed">高速相机</option>
         <option value="industrial">工业相机</option>
+        <option value="external">外部流转</option>
       </select></div>
       <div class="row"><button onclick="saveEdit()">保存</button><button onclick="closeEdit()" style="background:#999;">取消</button></div>
     </div>
@@ -866,6 +949,7 @@
       <div class="row"><label>产品类型</label><select id="create-product">
         <option value="highspeed">高速相机</option>
         <option value="industrial">工业相机</option>
+        <option value="external">外部流转</option>
       </select></div>
       <div class="row"><button onclick="saveCreate()">保存</button><button onclick="closeCreate()" style="background:#999;">取消</button></div>
     </div>

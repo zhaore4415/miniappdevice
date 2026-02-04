@@ -17,6 +17,9 @@
     .card { background:#fff; border: 1px solid #eee; padding: 16px; border-radius: 12px; margin-top: 12px; box-shadow:0 6px 16px rgba(0,0,0,.06); }
     .muted { color: #666; font-size: 12px; }
     .login-form { margin-top: 40px; }
+    .skip-login { text-align: center; margin-top: 20px; }
+    .skip-login a { color: var(--primary); text-decoration: none; font-size: 14px; }
+    .skip-login a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -31,6 +34,9 @@
       <div class="row"><label>密码</label><input id="p" type="password" placeholder="" /></div>
       <div class="row"><button onclick="login()">登录</button></div>
       <div id="login-result" class="muted"></div>
+    </div>
+    <div class="skip-login">
+      <a href="/">查看设备列表（无需登录）</a>
     </div>
   </main>
   <script>
