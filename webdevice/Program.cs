@@ -85,7 +85,7 @@ app.MapGet("/api/devices", async ([FromQuery] string? q, [FromQuery] DeviceStatu
     if (p < 1) p = 1;
     if (ps < 1) ps = 20;
     var skip = (p - 1) * ps;
-    var result = await queryable.OrderBy(d => d.SN).Skip(skip).Take(ps).ToListAsync();
+    var result = await queryable.OrderBy(d => d.SortOrder).ThenBy(d => d.SN).Skip(skip).Take(ps).ToListAsync();
     ctx.Response.Headers["X-Total-Count"] = total.ToString();
     ctx.Response.Headers["X-Page"] = p.ToString();
     ctx.Response.Headers["X-Page-Size"] = ps.ToString();
@@ -135,6 +135,29 @@ app.MapPut("/api/devices/{sn}", async (string sn, [FromBody] DeviceUpdateRequest
     db.Devices.Update(d);
     await db.SaveChangesAsync();
     return Results.Ok(d);
+});
+
+app.MapPost("/api/devices/reorder", async ([FromBody] ReorderRequest req, AppDb db, HttpContext ctx) =>
+{
+    var device = await db.Devices.FirstOrDefaultAsync(x => x.SN == req.SN);
+    if (device is null) return Results.NotFound(new { message = "设备不存在" });
+    
+    var allDevices = await db.Devices.Where(d => d.Product == device.Product).OrderBy(d => d.SortOrder).ToListAsync();
+    var currentIndex = allDevices.FindIndex(d => d.SN == req.SN);
+    if (currentIndex < 0) return Results.NotFound(new { message = "设备不存在" });
+    
+    var newIndex = currentIndex + (req.Direction == "up" ? -1 : 1);
+    if (newIndex < 0 || newIndex >= allDevices.Count) return Results.BadRequest(new { message = "无法移动" });
+    
+    var targetDevice = allDevices[newIndex];
+    var tempSort = device.SortOrder;
+    device.SortOrder = targetDevice.SortOrder;
+    targetDevice.SortOrder = tempSort;
+    
+    db.Devices.Update(device);
+    db.Devices.Update(targetDevice);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { success = true });
 });
 app.MapDelete("/api/devices", async ([FromBody] DeleteRequest req, AppDb db, HttpContext ctx) =>
 {
@@ -365,7 +388,31 @@ app.Lifetime.ApplicationStarted.Register(async () => {
     if (!HasCol("Product")) db.Database.ExecuteSqlRaw("ALTER TABLE Devices ADD COLUMN Product TEXT");
     if (!HasCol("LastEventAt")) db.Database.ExecuteSqlRaw("ALTER TABLE Devices ADD COLUMN LastEventAt TEXT");
     if (!HasCol("Remark")) db.Database.ExecuteSqlRaw("ALTER TABLE Devices ADD COLUMN Remark TEXT");
+    var sortOrderAdded = false;
+    if (!HasCol("SortOrder")) 
+    { 
+        db.Database.ExecuteSqlRaw("ALTER TABLE Devices ADD COLUMN SortOrder INTEGER DEFAULT 0");
+        sortOrderAdded = true;
+    }
     db.Database.ExecuteSqlRaw("UPDATE Devices SET LastEventAt = COALESCE(LastReturnAt, LastShipAt) WHERE LastEventAt IS NULL AND (LastReturnAt IS NOT NULL OR LastShipAt IS NOT NULL)");
+    
+    // 初始化SortOrder值（只在字段刚添加或SortOrder值为0时执行）
+    var needInit = await db.Devices.AnyAsync(d => d.SortOrder == 0);
+    if (needInit)
+    {
+        var devices = await db.Devices.OrderBy(d => d.SN).ToListAsync();
+        var highspeedDevices = devices.Where(d => d.Product == "highspeed").ToList();
+        var industrialDevices = devices.Where(d => d.Product == "industrial").ToList();
+        var externalDevices = devices.Where(d => d.Product == "external").ToList();
+        var otherDevices = devices.Where(d => d.Product != "highspeed" && d.Product != "industrial" && d.Product != "external").ToList();
+        
+        for (int i = 0; i < highspeedDevices.Count; i++) highspeedDevices[i].SortOrder = i;
+        for (int i = 0; i < industrialDevices.Count; i++) industrialDevices[i].SortOrder = i;
+        for (int i = 0; i < externalDevices.Count; i++) externalDevices[i].SortOrder = i;
+        for (int i = 0; i < otherDevices.Count; i++) otherDevices[i].SortOrder = i;
+        
+        await db.SaveChangesAsync();
+    }
     
     // 添加默认用户
     var defaultUser = await db.Users.FirstOrDefaultAsync(u => u.Username == "admin");
@@ -403,6 +450,7 @@ public record Device
     public DateTimeOffset? ExpectedReturnAt { get; set; }
     public DateTimeOffset? LastReturnAt { get; set; }
     public DateTimeOffset? LastEventAt { get; set; }
+    public int SortOrder { get; set; } = 0;
 }
 
 public record ShipRequest(string SN, string Address, string? Operator, DateTimeOffset? ShipAt);
@@ -410,6 +458,7 @@ public record ReturnRequest(string SN, string? Operator, DateTimeOffset? ReturnA
 public record QrBatchRequest(List<string> SNs);
 public record LoginRequest(string Username, string Password);
 public record DeviceUpdateRequest(string? Name, string? Model, string? Owner, string? OwnerPhone, string? LastShipAddress, string? Product, string? Remark);
+public record ReorderRequest(string SN, string Direction);
 public record TokenLoginRequest(string Token);
 public record TokenCreateResponse(string Token, DateTimeOffset ExpireAt);
 public record DeleteRequest(List<string> SNs);

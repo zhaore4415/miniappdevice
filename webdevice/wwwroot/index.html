@@ -20,10 +20,12 @@
     table { border-collapse: collapse; width: 100%; margin-top: 12px; background:#fff; }
     th, td { border: 1px solid #eee; padding: 10px; text-align: left; }
     .table-actions button{ padding:6px 10px; font-size:12px; }
+    .sort-actions button{ padding:4px 8px; font-size:14px; min-width:30px; background:#6b7280; }
+    .sort-actions button:disabled{ opacity:0.3; cursor:not-allowed; }
     .table-fixed{ table-layout: fixed; }
     .table-fixed th, .table-fixed td{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .table-fixed th:nth-child(8), .table-fixed td:nth-child(8){ white-space: normal; }
-    .table-fixed th:nth-child(10), .table-fixed td:nth-child(10){ white-space: normal; }
+    .table-fixed th:nth-child(11), .table-fixed td:nth-child(11){ white-space: normal; }
     .table-fixed th:last-child{ overflow: visible; }
     .tabs { display: flex; gap: 12px; }
     .tabs.vertical{ flex-direction: column; }
@@ -215,9 +217,10 @@
         <col style="width:180px" />
         <col style="width:90px" />
         <col style="width:120px" />
+        <col style="width:100px" />
         <col style="width:80px" />
       </colgroup>
-      <thead><tr><th>状态</th><th>名称</th><th>型号</th><th>SN</th><th>负责人</th><th>时间</th><th>地址</th><th>经手人</th><th>操作</th><th>选择 <input id="select-all" type="checkbox" onchange="toggleSelectAll(this)"></th></tr></thead>
+      <thead><tr><th>状态</th><th>名称</th><th>型号</th><th>SN</th><th>负责人</th><th>时间</th><th>地址</th><th>经手人</th><th>操作</th><th>排序</th><th>选择 <input id="select-all" type="checkbox" onchange="toggleSelectAll(this)"></th></tr></thead>
       <tbody id="device-tbody"></tbody>
     </table>
     </div>
@@ -244,7 +247,8 @@
       ret: '/api/devices/return',
       list: '/api/devices',
       qr: '/api/qrcode/batch',
-      register: '/api/devices/register'
+      register: '/api/devices/register',
+      reorder: '/api/devices/reorder'
     };
     
     let isLoggedIn = false;
@@ -597,7 +601,10 @@
         const productType = (d.product || d.Product || '');
         const productText = productType === 'industrial' ? '工业相机' : (productType === 'highspeed' ? '高速相机' : (productType === 'external' ? '外部流转' : productType));
         const timeVal = d.lastEventAt || d.LastEventAt || d.lastShipAt || d.LastShipAt || d.lastReturnAt || d.LastReturnAt;
-        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td class='table-actions'>${isLoggedIn ? `<button onclick="openEdit('${sn}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}')">编辑</button> ` : ''}<button onclick="openHistory('${sn}')" style="background:#6b7280;" data-kind="history">历史</button></td><td><input type="checkbox" data-sn="${sn}" onchange="toggleSelect(this,'${sn}')" ${selected.has(sn)?'checked':''} ${!isLoggedIn ? 'disabled' : ''}></td>`;
+        const index = list.indexOf(d);
+        const canMoveUp = index > 0;
+        const canMoveDown = index < list.length - 1;
+        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td class='table-actions'>${isLoggedIn ? `<button onclick="openEdit('${escapeAttr(sn)}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}')">编辑</button> ` : ''}<button onclick="openHistory('${escapeAttr(sn)}')" style="background:#6b7280;" data-kind="history">历史</button></td><td class='sort-actions'>${isLoggedIn ? `<button onclick="moveDevice('${escapeAttr(sn)}', 'up')" ${canMoveUp ? '' : 'disabled'} title="上移">▲</button><button onclick="moveDevice('${escapeAttr(sn)}', 'down')" ${canMoveDown ? '' : 'disabled'} title="下移">▼</button>` : ''}</td><td><input type="checkbox" data-sn="${escapeAttr(sn)}" onchange="toggleSelect(this,'${escapeAttr(sn)}')" ${selected.has(sn)?'checked':''} ${!isLoggedIn ? 'disabled' : ''}></td>`;
         tbody.appendChild(tr);
       }
       updateSelectAll();
@@ -648,6 +655,11 @@
       };
       const res = await fetch(`/api/devices/${encodeURIComponent(edit.sn)}`, { method:'PUT', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(body) });
       if(res.ok){ closeEdit(); loadDevices(); } else { const err = await res.json().catch(async()=>({message: await res.text()})); alert(err.message || '保存失败'); }
+    }
+
+    async function moveDevice(sn, direction){
+      const res = await fetch(api.reorder, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ SN: sn, Direction: direction }) });
+      if(res.ok){ loadDevices(); } else { const err = await res.json().catch(async()=>({message: await res.text()})); alert(err.message || '移动失败'); }
     }
     function toggleSelect(cb, sn){ if(cb.checked){ selected.add(sn);} else { selected.delete(sn);} updateSelectAll(); }
     function toggleSelectAll(cb){
