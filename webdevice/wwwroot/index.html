@@ -163,7 +163,7 @@
       </div>
     </div>
   </div>
-  <div id="panel-ship-history" class="card">
+  <div id="panel-ship-history" class="card" style="display:none;">
     <div class="row"><label>已完成登记</label><div style="flex:1;"></div></div>
     <div id="ship-history-list" class="history"></div>
   </div>
@@ -209,15 +209,15 @@
     <table class="table-fixed">
       <colgroup>
         <col style="width:80px" />
-        <col style="width:120px" />
         <col style="width:100px" />
-        <col style="width:130px" />
+        <col style="width:170px" />
+        <col style="width:175px" />
         <col style="width:90px" />
-        <col style="width:150px" />
+        <col style="width:165px" />
         <col style="width:180px" />
         <col style="width:90px" />
         <col style="width:120px" />
-        <col style="width:100px" />
+        <col style="width:90px" />
         <col style="width:80px" />
       </colgroup>
       <thead><tr><th>状态</th><th>名称</th><th>型号</th><th>SN</th><th>负责人</th><th>时间</th><th>地址</th><th>经手人</th><th>操作</th><th>排序</th><th>选择 <input id="select-all" type="checkbox" onchange="toggleSelectAll(this)"></th></tr></thead>
@@ -318,8 +318,9 @@
       }
       
       document.getElementById('panel-ship').style.display = t==='ship'? 'block':'none';
+      // 隐藏已完成登记模块
       const shipHist = document.getElementById('panel-ship-history');
-      if (shipHist) shipHist.style.display = t==='ship'? 'block':'none';
+      if (shipHist) shipHist.style.display = 'none';
       document.getElementById('panel-return').style.display = t==='return'? 'block':'none';
       document.getElementById('panel-list').style.display = t==='list'? 'block':'none';
       document.getElementById('panel-qrcode').style.display = t==='qrcode'? 'block':'none';
@@ -604,7 +605,7 @@
         const index = list.indexOf(d);
         const canMoveUp = index > 0;
         const canMoveDown = index < list.length - 1;
-        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td>${d.model || ''}</td><td>${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td class='table-actions'>${isLoggedIn ? `<button onclick="openEdit('${escapeAttr(sn)}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}')">编辑</button> ` : ''}<button onclick="openHistory('${escapeAttr(sn)}')" style="background:#6b7280;" data-kind="history">历史</button></td><td class='sort-actions'>${isLoggedIn ? `<button onclick="moveDevice('${escapeAttr(sn)}', 'up')" ${canMoveUp ? '' : 'disabled'} title="上移">▲</button><button onclick="moveDevice('${escapeAttr(sn)}', 'down')" ${canMoveDown ? '' : 'disabled'} title="下移">▼</button>` : ''}</td><td><input type="checkbox" data-sn="${escapeAttr(sn)}" onchange="toggleSelect(this,'${escapeAttr(sn)}')" ${selected.has(sn)?'checked':''} ${!isLoggedIn ? 'disabled' : ''}></td>`;
+        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td title="${escapeAttr(d.model || '')}">${d.model || ''}</td><td title="${escapeAttr(sn)}">${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td class='table-actions'>${isLoggedIn ? `<button onclick="openEdit('${escapeAttr(sn)}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}')">编辑</button> ` : ''}<button onclick="openHistory('${escapeAttr(sn)}')" style="background:#6b7280;" data-kind="history">历史</button></td><td class='sort-actions'>${isLoggedIn ? `<button onclick="moveDevice('${escapeAttr(sn)}', 'up')" ${canMoveUp ? '' : 'disabled'} title="上移">▲</button><button onclick="moveDevice('${escapeAttr(sn)}', 'down')" ${canMoveDown ? '' : 'disabled'} title="下移">▼</button>` : ''}</td><td><input type="checkbox" data-sn="${escapeAttr(sn)}" onchange="toggleSelect(this,'${escapeAttr(sn)}')" ${selected.has(sn)?'checked':''} ${!isLoggedIn ? 'disabled' : ''}></td>`;
         tbody.appendChild(tr);
       }
       updateSelectAll();
