@@ -71,7 +71,7 @@ app.Use(async (context, next) => {
     await next();
 });
 
-app.MapGet("/api/devices", async ([FromQuery] string? q, [FromQuery] DeviceStatus? status, [FromQuery] string? product, [FromQuery] int? page, [FromQuery] int? pageSize, AppDb db, HttpContext ctx) =>
+app.MapGet("/api/devices", async ([FromQuery] string? q, [FromQuery] DeviceStatus? status, [FromQuery] string? product, [FromQuery] string? owner, [FromQuery] string? @operator, [FromQuery] int? page, [FromQuery] int? pageSize, AppDb db, HttpContext ctx) =>
 {
     var queryable = db.Devices.AsNoTracking().AsQueryable();
     if (status.HasValue) queryable = queryable.Where(d => d.Status == status.Value);
@@ -79,6 +79,10 @@ app.MapGet("/api/devices", async ([FromQuery] string? q, [FromQuery] DeviceStatu
         queryable = queryable.Where(d => (d.SN != null && EF.Functions.Like(d.SN, $"%{q}%")) || (d.Name != null && EF.Functions.Like(d.Name, $"%{q}%")));
     if (!string.IsNullOrWhiteSpace(product))
         queryable = queryable.Where(d => d.Product == product);
+    if (!string.IsNullOrWhiteSpace(owner))
+        queryable = queryable.Where(d => d.Owner != null && EF.Functions.Like(d.Owner, $"%{owner}%"));
+    if (!string.IsNullOrWhiteSpace(@operator))
+        queryable = queryable.Where(d => d.LastShipBy != null && EF.Functions.Like(d.LastShipBy, $"%{@operator}%"));
     var total = await queryable.CountAsync();
     var p = page.GetValueOrDefault(1);
     var ps = pageSize.GetValueOrDefault(20);

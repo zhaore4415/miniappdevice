@@ -190,20 +190,22 @@
       <button id="tab-external" onclick="switchDeviceTab('external')">外部流转</button>
     </div>
     <div class="row">
-      <label>筛选状态</label>
-      <select id="filter-status" onchange="loadDevices()">
-        <option value="">全部</option>
-        <option value="Idle">空闲</option>
-        <option value="Shipping">寄出中</option>
-        <!--<option value="Repairing">维修中</option>-->
-        <!--<option value="Scrapped">报废</option>-->
-      </select>
-      <label>搜索</label>
-      <input id="filter-q" placeholder="按SN或名称" oninput="loadDevices()" />
-      <button onclick="loadDevices()">刷新</button>
-      <button id="btn-create" onclick="openCreate()" style="background:#0ea5e9;">新增设备</button>
-      <button id="btn-bulk" onclick="openBulk()" style="background:#10b981;">批量登记</button>
-      <button id="btn-delete" onclick="deleteSelected()" style="background:#ef4444;">批量删除</button>
+        <label>筛选状态</label>
+        <select id="filter-status" onchange="loadDevices()">
+            <option value="">全部</option>
+            <option value="Idle">空闲</option>
+            <option value="Shipping">寄出中</option>
+            <!--<option value="Repairing">维修中</option>-->
+            <!--<option value="Scrapped">报废</option>-->
+        </select>
+        <input id="filter-q" placeholder="按SN或名称" oninput="loadDevices()" />  
+        <input id="filter-owner" placeholder="按负责人筛选" oninput="loadDevices()" />
+        <input id="filter-operator" placeholder="按经手人筛选" oninput="loadDevices()" />
+        <label>搜索</label>
+        <button onclick="loadDevices()">刷新</button>
+        <button id="btn-create" onclick="openCreate()" style="background:#0ea5e9;">新增设备</button>
+        <button id="btn-bulk" onclick="openBulk()" style="background:#10b981;">批量登记</button>
+        <button id="btn-delete" onclick="deleteSelected()" style="background:#ef4444;">批量删除</button>
     </div>
     <div class="table-wrap">
     <table class="table-fixed">
@@ -580,10 +582,14 @@
     async function loadDevices(tab) {
       const q = document.getElementById('filter-q').value.trim();
       const status = document.getElementById('filter-status').value;
+      const owner = document.getElementById('filter-owner').value.trim();
+      const operator = document.getElementById('filter-operator').value.trim();
       const currentTab = tab || currentDeviceTab;
       const url = new URL(api.list, location.origin);
       if (q) url.searchParams.set('q', q);
       if (status) url.searchParams.set('status', status);
+      if (owner) url.searchParams.set('owner', owner);
+      if (operator) url.searchParams.set('operator', operator);
       // 仅在非“全部”时添加产品类型参数
       if (currentTab && currentTab !== 'all') {
         url.searchParams.set('product', currentTab);
