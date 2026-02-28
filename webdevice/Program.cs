@@ -215,6 +215,9 @@ app.MapPost("/api/devices/return", async ([FromBody] ReturnRequest req, AppDb db
         d.Status = DeviceStatus.Idle;
         d.LastReturnAt = req.ReturnAt ?? DateTimeOffset.UtcNow;
         d.LastEventAt = d.LastReturnAt;
+        // 清空寄出地址和经手人
+        d.LastShipAddress = null;
+        d.LastShipBy = null;
         db.Devices.Update(d);
         var at = d.LastReturnAt!.Value;
         while (await db.Logs.AnyAsync(l => l.SN == req.SN && l.At == at)) at = at.AddTicks(1);
