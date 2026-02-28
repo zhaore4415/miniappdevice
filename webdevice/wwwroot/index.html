@@ -226,7 +226,6 @@
       <tbody id="device-tbody"></tbody>
     </table>
     </div>
-    <div id="pager"></div>
   </div>
 
   <div id="panel-qrcode" class="card" style="display:none;">
@@ -288,8 +287,7 @@
     let shipHistory = [];
     let marqueeTimer = null;
     let currentDeviceTab = 'highspeed'; // 高速相机/工业相机页签，默认高速相机
-    let currentPage = 1;
-    const pageSize = 20;
+
     let totalCount = 0;
     let historyList = [];
     let historyPage = 1;
@@ -337,7 +335,6 @@
     function switchDeviceTab(tab) {
       // 更新当前页签
       currentDeviceTab = tab;
-      currentPage = 1;
       
       // 更新UI显示
       document.querySelectorAll('#panel-list .tabs button').forEach(btn => btn.classList.remove('active'));
@@ -378,17 +375,11 @@
       const lastTab = localStorage.getItem('tab');
       switchTab(isLoggedIn ? (lastTab || 'ship') : 'list');
       
-      // 加载上次选择的设备页签
-      const lastDeviceTab = localStorage.getItem('deviceTab');
-      if (lastDeviceTab && (lastDeviceTab === 'highspeed' || lastDeviceTab === 'industrial' || lastDeviceTab === 'external')) {
-        currentDeviceTab = lastDeviceTab;
-        // 更新UI显示
-        document.querySelectorAll('#panel-list .tabs button').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(`tab-${lastDeviceTab}`).classList.add('active');
-      } else {
-        // 如果上次选择的是'all'或其他无效值，默认使用'highspeed'
-        currentDeviceTab = 'highspeed';
-      }
+      // 总是默认选择高速相机
+      currentDeviceTab = 'highspeed';
+      // 更新UI显示
+      document.querySelectorAll('#panel-list .tabs button').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('tab-highspeed').classList.add('active');
       
       try{
         shipHistory = JSON.parse(localStorage.getItem('ship_history') || '[]');
@@ -590,12 +581,10 @@
       if (status) url.searchParams.set('status', status);
       if (owner) url.searchParams.set('owner', owner);
       if (operator) url.searchParams.set('operator', operator);
-      // 仅在非“全部”时添加产品类型参数
+      // 仅在非"全部"时添加产品类型参数
       if (currentTab && currentTab !== 'all') {
         url.searchParams.set('product', currentTab);
       }
-      url.searchParams.set('page', String(currentPage));
-      url.searchParams.set('pageSize', String(pageSize));
       const res = await fetch(url, { credentials: 'include' });
       const list = res.ok ? await res.json() : [];
       const hdrTotal = res.headers.get('X-Total-Count');
@@ -616,7 +605,6 @@
       }
       updateSelectAll();
       enhanceActions();
-      renderPager();
     }
 
     function formatTime(v) {
@@ -911,21 +899,6 @@
     function stopHistoryMarquee(){
       if(marqueeTimer){ clearInterval(marqueeTimer); marqueeTimer = null; }
     }
-    function renderPager(){
-      const el = document.getElementById('pager');
-      if(!el) return;
-      const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-      if(currentPage > totalPages) currentPage = totalPages;
-      el.innerHTML = `
-        <div style="display:flex; align-items:center; gap:8px; padding:8px 0;">
-          <button ${currentPage<=1?'disabled':''} onclick="prevPage()">上一页</button>
-          <button ${currentPage>=totalPages?'disabled':''} onclick="nextPage()">下一页</button>
-          <span class="muted">第 ${currentPage} / ${totalPages} 页，共 ${totalCount} 条</span>
-        </div>
-      `;
-    }
-    function prevPage(){ if(currentPage>1){ currentPage--; loadDevices(); } }
-    function nextPage(){ const totalPages = Math.max(1, Math.ceil(totalCount / pageSize)); if(currentPage<totalPages){ currentPage++; loadDevices(); } }
   </script>
   <div id="history-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); align-items:center; justify-content:center;">
     <div style="background:#fff; padding:16px; border-radius:12px; width:680px; max-width:95vw; box-shadow:0 10px 20px rgba(0,0,0,.15)">
