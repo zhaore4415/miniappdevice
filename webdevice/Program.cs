@@ -248,6 +248,20 @@ app.MapGet("/api/logs/{sn}", async (string sn, AppDb db) =>
     }
 });
 
+app.MapDelete("/api/logs/clear", async (AppDb db) =>
+{
+    try
+    {
+        db.Logs.RemoveRange(db.Logs);
+        await db.SaveChangesAsync();
+        return Results.Ok(new { message = "历史记录已清空" });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+});
+
 app.MapGet("/api/devices/{sn}/history", async (string sn, [FromQuery] int? limit, AppDb db) =>
 {
     try

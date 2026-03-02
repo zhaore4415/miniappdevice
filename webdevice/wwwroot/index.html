@@ -206,6 +206,7 @@
         <button id="btn-create" onclick="openCreate()" style="background:#0ea5e9;">新增设备</button>
         <button id="btn-bulk" onclick="openBulk()" style="background:#10b981;">批量登记</button>
         <button id="btn-delete" onclick="deleteSelected()" style="background:#ef4444;">批量删除</button>
+        <button id="btn-clear-history" onclick="clearHistory()" style="background:#f59e0b;">清空历史记录</button>
     </div>
     <div class="table-wrap">
     <table class="table-fixed">
@@ -392,10 +393,12 @@
       const btnCreate = document.getElementById('btn-create');
       const btnBulk = document.getElementById('btn-bulk');
       const btnDelete = document.getElementById('btn-delete');
+      const btnClearHistory = document.getElementById('btn-clear-history');
       
       if (btnCreate) btnCreate.style.display = isLoggedIn ? 'block' : 'none';
       if (btnBulk) btnBulk.style.display = isLoggedIn ? 'block' : 'none';
       if (btnDelete) btnDelete.style.display = isLoggedIn ? 'block' : 'none';
+      if (btnClearHistory) btnClearHistory.style.display = isLoggedIn ? 'block' : 'none';
       
       // 显示或隐藏侧边栏标签
       const tabShip = document.getElementById('tab-ship');
@@ -803,6 +806,12 @@
       if(!confirm('确认删除选中设备？')) return;
       const res = await fetch('/api/devices', { method:'DELETE', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ SNs: Array.from(selected) }) });
       if(res.ok){ selected.clear(); loadDevices(); } else { alert('删除失败'); }
+    }
+
+    async function clearHistory(){
+      if(!confirm('确认清空所有寄出/归还历史记录？此操作无法还原！')) return;
+      const res = await fetch('/api/logs/clear', { method:'DELETE', credentials:'include' });
+      if(res.ok){ alert('历史记录已清空'); loadDevices(); } else { alert('清空失败'); }
     }
 
     function gotoRegisterWithSN(sn){
