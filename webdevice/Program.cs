@@ -84,15 +84,21 @@ app.MapGet("/api/devices", async ([FromQuery] string? q, [FromQuery] DeviceStatu
     if (!string.IsNullOrWhiteSpace(@operator))
         queryable = queryable.Where(d => d.LastShipBy != null && EF.Functions.Like(d.LastShipBy, $"%{@operator}%"));
     var total = await queryable.CountAsync();
-    var p = page.GetValueOrDefault(1);
-    var ps = pageSize.GetValueOrDefault(20);
-    if (p < 1) p = 1;
-    if (ps < 1) ps = 20;
-    var skip = (p - 1) * ps;
-    var result = await queryable.OrderBy(d => d.SortOrder).ThenBy(d => d.SN).Skip(skip).Take(ps).ToListAsync();
+    List<Device> result;
+    if (page.HasValue && pageSize.HasValue)
+    {
+        var p = page.Value < 1 ? 1 : page.Value;
+        var ps = pageSize.Value < 1 ? 20 : pageSize.Value;
+        var skip = (p - 1) * ps;
+        result = await queryable.OrderBy(d => d.SortOrder).Skip(skip).Take(ps).ToListAsync();
+        ctx.Response.Headers["X-Page"] = p.ToString();
+        ctx.Response.Headers["X-Page-Size"] = ps.ToString();
+    }
+    else
+    {
+        result = await queryable.OrderBy(d => d.SortOrder).ToListAsync();
+    }
     ctx.Response.Headers["X-Total-Count"] = total.ToString();
-    ctx.Response.Headers["X-Page"] = p.ToString();
-    ctx.Response.Headers["X-Page-Size"] = ps.ToString();
     return Results.Ok(result);
 });
 
@@ -160,6 +166,17 @@ app.MapPost("/api/devices/reorder", async ([FromBody] ReorderRequest req, AppDb 
     
     db.Devices.Update(device);
     db.Devices.Update(targetDevice);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { success = true });
+});
+
+app.MapPost("/api/devices/sort", async ([FromBody] SortOrderRequest req, AppDb db, HttpContext ctx) =>
+{
+    var device = await db.Devices.FirstOrDefaultAsync(x => x.SN == req.SN);
+    if (device is null) return Results.NotFound(new { message = "设备不存在" });
+    
+    device.SortOrder = req.SortOrder;
+    db.Devices.Update(device);
     await db.SaveChangesAsync();
     return Results.Ok(new { success = true });
 });
@@ -480,6 +497,7 @@ public record QrBatchRequest(List<string> SNs);
 public record LoginRequest(string Username, string Password);
 public record DeviceUpdateRequest(string? Name, string? Model, string? Owner, string? OwnerPhone, string? LastShipAddress, string? Product, string? Remark);
 public record ReorderRequest(string SN, string Direction);
+public record SortOrderRequest(string SN, int SortOrder);
 public record TokenLoginRequest(string Token);
 public record TokenCreateResponse(string Token, DateTimeOffset ExpireAt);
 public record DeleteRequest(List<string> SNs);

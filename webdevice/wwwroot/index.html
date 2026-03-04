@@ -220,7 +220,7 @@
         <col style="width:180px" />
         <col style="width:90px" />
         <col style="width:120px" />
-        <col style="width:90px" />
+        <col style="width:135px" />
         <col style="width:80px" />
       </colgroup>
       <thead><tr><th>状态</th><th>名称</th><th>型号</th><th>SN</th><th>负责人</th><th>时间</th><th>地址</th><th>经手人</th><th>操作</th><th>排序</th><th>选择 <input id="select-all" type="checkbox" onchange="toggleSelectAll(this)"></th></tr></thead>
@@ -603,7 +603,7 @@
         const index = list.indexOf(d);
         const canMoveUp = index > 0;
         const canMoveDown = index < list.length - 1;
-        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td title="${escapeAttr(d.model || '')}">${d.model || ''}</td><td title="${escapeAttr(sn)}">${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td class='table-actions'>${isLoggedIn ? `<button onclick="openEdit('${escapeAttr(sn)}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}')">编辑</button> ` : ''}<button onclick="openHistory('${escapeAttr(sn)}')" style="background:#6b7280;" data-kind="history">历史</button></td><td class='sort-actions'>${isLoggedIn ? `<button onclick="moveDevice('${escapeAttr(sn)}', 'up')" ${canMoveUp ? '' : 'disabled'} title="上移">▲</button><button onclick="moveDevice('${escapeAttr(sn)}', 'down')" ${canMoveDown ? '' : 'disabled'} title="下移">▼</button>` : ''}</td><td><input type="checkbox" data-sn="${escapeAttr(sn)}" onchange="toggleSelect(this,'${escapeAttr(sn)}')" ${selected.has(sn)?'checked':''} ${!isLoggedIn ? 'disabled' : ''}></td>`;
+        tr.innerHTML = `<td>${statusText(d.status)}</td><td>${d.name || ''}</td><td title="${escapeAttr(d.model || '')}">${d.model || ''}</td><td title="${escapeAttr(sn)}">${sn}</td><td>${d.owner || ''}</td><td>${formatTime(timeVal)}</td><td>${d.lastShipAddress || ''}</td><td>${d.lastShipBy || ''}</td><td class='table-actions'>${isLoggedIn ? `<button onclick="openEdit('${escapeAttr(sn)}', '${escapeAttr(d.name)}', '${escapeAttr(d.model)}', '${escapeAttr(d.owner)}', '${escapeAttr(d.lastShipAddress)}', '${escapeAttr(d.product || d.Product)}')">编辑</button> ` : ''}<button onclick="openHistory('${escapeAttr(sn)}')" style="background:#6b7280;" data-kind="history">历史</button></td><td class='sort-actions'>${isLoggedIn ? `<div style="display:flex; align-items:center; gap:4px;"><input type="number" value="${d.sortOrder || d.SortOrder || 0}" onchange="updateSortOrder('${escapeAttr(sn)}', this.value)" style="width:40px; padding:2px 4px;" /><button onclick="moveDevice('${escapeAttr(sn)}', 'up')" ${canMoveUp ? '' : 'disabled'} title="上移">▲</button><button onclick="moveDevice('${escapeAttr(sn)}', 'down')" ${canMoveDown ? '' : 'disabled'} title="下移">▼</button></div>` : `<span>${d.sortOrder || d.SortOrder || 0}</span>`}</td><td><input type="checkbox" data-sn="${escapeAttr(sn)}" onchange="toggleSelect(this,'${escapeAttr(sn)}')" ${selected.has(sn)?'checked':''} ${!isLoggedIn ? 'disabled' : ''}></td>`;
         tbody.appendChild(tr);
       }
       updateSelectAll();
@@ -658,6 +658,13 @@
     async function moveDevice(sn, direction){
       const res = await fetch(api.reorder, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ SN: sn, Direction: direction }) });
       if(res.ok){ loadDevices(); } else { const err = await res.json().catch(async()=>({message: await res.text()})); alert(err.message || '移动失败'); }
+    }
+
+    async function updateSortOrder(sn, sortOrder){
+      const value = parseInt(sortOrder);
+      if(isNaN(value)){ alert('请输入有效的数字'); return; }
+      const res = await fetch('/api/devices/sort', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ SN: sn, SortOrder: value }) });
+      if(res.ok){ loadDevices(); } else { const err = await res.json().catch(async()=>({message: await res.text()})); alert(err.message || '更新失败'); }
     }
     function toggleSelect(cb, sn){ if(cb.checked){ selected.add(sn);} else { selected.delete(sn);} updateSelectAll(); }
     function toggleSelectAll(cb){
