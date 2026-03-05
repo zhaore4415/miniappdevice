@@ -434,23 +434,23 @@ app.Lifetime.ApplicationStarted.Register(async () => {
     }
     db.Database.ExecuteSqlRaw("UPDATE Devices SET LastEventAt = COALESCE(LastReturnAt, LastShipAt) WHERE LastEventAt IS NULL AND (LastReturnAt IS NOT NULL OR LastShipAt IS NOT NULL)");
     
-    // 初始化SortOrder值（只在字段刚添加或SortOrder值为0时执行）
-    var needInit = await db.Devices.AnyAsync(d => d.SortOrder == 0);
-    if (needInit)
-    {
-        var devices = await db.Devices.OrderBy(d => d.SN).ToListAsync();
-        var highspeedDevices = devices.Where(d => d.Product == "highspeed").ToList();
-        var industrialDevices = devices.Where(d => d.Product == "industrial").ToList();
-        var externalDevices = devices.Where(d => d.Product == "external").ToList();
-        var otherDevices = devices.Where(d => d.Product != "highspeed" && d.Product != "industrial" && d.Product != "external").ToList();
+    //// 初始化SortOrder值（只在字段刚添加或SortOrder值为0时执行）
+    //var needInit = await db.Devices.AnyAsync(d => d.SortOrder == 0);
+    //if (needInit)
+    //{
+    //    var devices = await db.Devices.OrderBy(d => d.SN).ToListAsync();
+    //    var highspeedDevices = devices.Where(d => d.Product == "highspeed").ToList();
+    //    var industrialDevices = devices.Where(d => d.Product == "industrial").ToList();
+    //    var externalDevices = devices.Where(d => d.Product == "external").ToList();
+    //    var otherDevices = devices.Where(d => d.Product != "highspeed" && d.Product != "industrial" && d.Product != "external").ToList();
         
-        for (int i = 0; i < highspeedDevices.Count; i++) highspeedDevices[i].SortOrder = i;
-        for (int i = 0; i < industrialDevices.Count; i++) industrialDevices[i].SortOrder = i;
-        for (int i = 0; i < externalDevices.Count; i++) externalDevices[i].SortOrder = i;
-        for (int i = 0; i < otherDevices.Count; i++) otherDevices[i].SortOrder = i;
+    //    for (int i = 0; i < highspeedDevices.Count; i++) highspeedDevices[i].SortOrder = i;
+    //    for (int i = 0; i < industrialDevices.Count; i++) industrialDevices[i].SortOrder = i;
+    //    for (int i = 0; i < externalDevices.Count; i++) externalDevices[i].SortOrder = i;
+    //    for (int i = 0; i < otherDevices.Count; i++) otherDevices[i].SortOrder = i;
         
-        await db.SaveChangesAsync();
-    }
+    //    await db.SaveChangesAsync();
+    //}
     
     // 添加默认用户
     var defaultUser = await db.Users.FirstOrDefaultAsync(u => u.Username == "admin");
