@@ -404,6 +404,74 @@ app.MapGet("/api/me", (HttpContext ctx, AuthService auth) =>
     return Results.Ok(new { username = user });
 });
 
+// 修改用户名和密码API
+app.MapPost("/api/change-credentials", async ([FromBody] ChangeCredentialsRequest req, AppDb db, HttpContext ctx, AuthService auth) =>
+{
+    var username = auth.GetUser(ctx);
+    if (username == null) return Results.BadRequest(new { message = "未登录" });
+    
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
+    if (user is null) return Results.BadRequest(new { message = "用户不存在" });
+    
+    // 验证旧密码
+    if (!PasswordHasher.Verify(req.OldPassword, user.PasswordHash, user.Salt))
+        return Results.BadRequest(new { message = "旧密码错误" });
+    
+    var newUsername = req.NewUsername?.Trim();
+    var newPassword = req.NewPassword?.Trim();
+    
+    // 验证至少有一个要修改
+    if (string.IsNullOrWhiteSpace(newUsername) && string.IsNullOrWhiteSpace(newPassword))
+        return Results.BadRequest(new { message = "新用户名和新密码至少填写一个" });
+    
+    // 如果修改用户名
+    if (!string.IsNullOrWhiteSpace(newUsername))
+    {
+        if (newUsername.Length < 3)
+            return Results.BadRequest(new { message = "新用户名长度至少3位" });
+        
+        // 检查新用户名是否已存在
+        var existingUser = await db.Users.FirstOrDefaultAsync(u => u.Username == newUsername);
+        if (existingUser != null && existingUser.Username != username)
+            return Results.BadRequest(new { message = "该用户名已被使用" });
+        
+        // 保存旧用户名
+        var oldUsername = user.Username;
+        
+        // 先删除旧记录
+        db.Users.Remove(user);
+        await db.SaveChangesAsync();
+        
+        // 创建新用户记录
+        user = new User 
+        { 
+            Username = newUsername, 
+            PasswordHash = user.PasswordHash, 
+            Salt = user.Salt 
+        };
+        db.Users.Add(user);
+        
+        // 更新session中的用户名
+        auth.UpdateSessionUsername(ctx, newUsername);
+    }
+    
+    // 如果修改密码
+    if (!string.IsNullOrWhiteSpace(newPassword))
+    {
+        if (newPassword.Length < 6)
+            return Results.BadRequest(new { message = "新密码长度至少6位" });
+        
+        // 生成新密码哈希
+        var (hash, salt) = PasswordHasher.Hash(newPassword);
+        user.PasswordHash = hash;
+        user.Salt = salt;
+    }
+    
+    await db.SaveChangesAsync();
+    
+    return Results.Ok(new { username = user.Username, message = "修改成功" });
+});
+
 // 数据库初始化
 app.Lifetime.ApplicationStarted.Register(async () => {
     using var scope = app.Services.CreateScope();
@@ -502,6 +570,7 @@ public record TokenLoginRequest(string Token);
 public record TokenCreateResponse(string Token, DateTimeOffset ExpireAt);
 public record DeleteRequest(List<string> SNs);
 public record ShipHistoryItem(string SN, DateTimeOffset? ShipAt, string? ShipAddress, string? ShipOperator, DateTimeOffset? ReturnAt, string? ReturnOperator, long? DurationSeconds);
+public record ChangeCredentialsRequest(string OldPassword, string? NewUsername, string? NewPassword);
 
 public record OperationLog
 {
@@ -568,6 +637,14 @@ public class AuthService
         return _sessions.TryGetValue(token, out var s) ? s.user : null;
     }
     public void RemoveSession(string token) => _sessions.TryRemove(token, out _);
+    public void UpdateSessionUsername(HttpContext ctx, string newUsername)
+    {
+        var token = ctx.Request.Cookies["auth"];
+        if (token != null && _sessions.TryGetValue(token, out var s))
+        {
+            _sessions[token] = (newUsername, s.expire);
+        }
+    }
 }
 
 public static class PasswordHasher

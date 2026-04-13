@@ -239,6 +239,21 @@
   </div>
     </div>
   </div>
+
+  <!-- 修改用户名密码弹窗 -->
+  <div id="modal-change-credentials" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+    <div class="card" style="width:90%; max-width:400px; margin:0;">
+      <h3 style="margin-top:0;">修改用户名/密码</h3>
+      <div class="row"><label>旧密码</label><input id="cred-old-password" type="password" placeholder="必填" /></div>
+      <div class="row"><label>新用户名</label><input id="cred-new-username" placeholder="不修改则留空" /></div>
+      <div class="row"><label>新密码</label><input id="cred-new-password" type="password" placeholder="不修改则留空" /></div>
+      <div id="cred-result" class="muted" style="color:#ef4444; margin-bottom:10px;"></div>
+      <div class="row" style="justify-content:flex-end;">
+        <button onclick="closeChangeCredentials()" style="background:#999; margin-right:8px;">取消</button>
+        <button onclick="submitChangeCredentials()" style="background:#10b981;">确认修改</button>
+      </div>
+    </div>
+  </div>
   </main>
 
   <script>
@@ -267,7 +282,10 @@
         }
         const user = await res.json();
         document.querySelector('header h1').textContent = `设备管理系统 - ${user.username}`;
-        document.querySelector('header div').innerHTML = `<button onclick="logout()" style="background:#999; padding:6px 10px; font-size:12px;">退出登录</button>`;
+        document.querySelector('header div').innerHTML = `
+          <button onclick="openChangeCredentials()" style="background:#3b82f6; padding:6px 10px; font-size:12px; margin-right:8px;">修改信息</button>
+          <button onclick="logout()" style="background:#999; padding:6px 10px; font-size:12px;">退出登录</button>
+        `;
         isLoggedIn = true;
         return true;
       } catch {
@@ -282,6 +300,69 @@
       await fetch('/api/logout', { method: 'POST', credentials: 'include' });
       location.href = '/login.html';
     }
+
+    // 修改用户名密码相关函数
+    function openChangeCredentials() {
+      document.getElementById('modal-change-credentials').style.display = 'flex';
+      document.getElementById('cred-old-password').value = '';
+      document.getElementById('cred-new-username').value = '';
+      document.getElementById('cred-new-password').value = '';
+      document.getElementById('cred-result').textContent = '';
+      document.getElementById('cred-old-password').focus();
+    }
+
+    function closeChangeCredentials() {
+      document.getElementById('modal-change-credentials').style.display = 'none';
+    }
+
+    async function submitChangeCredentials() {
+      const oldPassword = document.getElementById('cred-old-password').value;
+      const newUsername = document.getElementById('cred-new-username').value.trim();
+      const newPassword = document.getElementById('cred-new-password').value;
+      const resultEl = document.getElementById('cred-result');
+
+      if (!oldPassword) {
+        resultEl.textContent = '请输入旧密码';
+        return;
+      }
+
+      if (!newUsername && !newPassword) {
+        resultEl.textContent = '新用户名和新密码至少填写一个';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/change-credentials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ OldPassword: oldPassword, NewUsername: newUsername, NewPassword: newPassword })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          alert('修改成功，请重新登录');
+          closeChangeCredentials();
+          logout();
+        } else {
+          const err = await res.json().catch(() => ({ message: '修改失败' }));
+          resultEl.textContent = err.message || '修改失败';
+        }
+      } catch (e) {
+        resultEl.textContent = '网络错误，请重试';
+      }
+    }
+
+    // 点击弹窗背景关闭
+    document.getElementById('modal-change-credentials').addEventListener('click', function(e) {
+      if (e.target === this) closeChangeCredentials();
+    });
+
+    // 回车键提交
+    document.getElementById('cred-new-password').addEventListener('keyup', function(e) {
+      if (e.key === 'Enter') submitChangeCredentials();
+    });
+
     const edit = { sn:'', name:'', model:'', owner:'', phone:'' };
     const selected = new Set();
     const statusNames = ['Idle','Shipping','Returned','Repairing','Scrapped'];
